@@ -2,3 +2,9 @@
 __pycache__/
 *.py[cod]
 server/data/
+node_modules/
+.pnpm-store/
+.wrangler/
+public/
+pnpm-lock.yaml
+pnpm-workspace.yaml

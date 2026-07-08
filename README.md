@@ -28,6 +28,17 @@ Cloudflare Pages can deploy this repository as a static site without a build
 command. The static entry point is `index.html`, which redirects to
 `home.html`.
 
+If the project is connected as a Cloudflare Workers service, use the included
+`wrangler.toml`. It deploys the repository as Workers Static Assets and serves
+the generated `public/` directory.
+
+Cloudflare Workers build settings:
+
+```text
+Build command: npm run build
+Deploy command: npm run deploy
+```
+
 `api.js` does not use the Cloudflare Pages origin as the API base URL. By
 default it sends API requests to:
 

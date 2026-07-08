@@ -77,3 +77,38 @@
     `avatar.js`, and all tracked images under `image/`.
   - API base URL simulation for `https://example.pages.dev/home.html`
     returned `http://127.0.0.1:8000`, not the Pages origin.
+
+## 2026-07-08 Cloudflare Workers Build Fix
+
+- The Cloudflare dashboard URL points to `workers/services/view/.../builds`,
+  which indicates the Git integration is running as a Workers build rather
+  than a Pages build.
+- Added `wrangler.toml` for Workers Static Assets:
+  - Worker name: `shinjuku0dooh0web`
+  - Assets directory: `public`
+  - Assets binding: `ASSETS`
+  - Compatibility date: `2026-07-08`
+- Added `src/worker.js` to serve static assets and return `404` for internal
+  files such as `server/`, `README.md`, work logs, and deployment metadata.
+- Added `package.json` with `build` and `deploy` scripts so Cloudflare's build
+  environment has an explicit deployment path.
+- Added `scripts/build-static.js` to copy only the required static web assets
+  into `public/`, avoiding accidental deployment of `node_modules` or backend
+  source files.
+- Updated `wrangler.toml` to use `public/` as the assets directory after
+  noticing that deploying the repository root would risk including build
+  dependencies.
+- Local verification:
+  - `node --check api.js`
+  - `node --check src/worker.js`
+  - `node --check scripts/build-static.js`
+  - `tomllib` parsed `wrangler.toml`.
+  - `json.load` parsed `package.json`.
+  - `node scripts/build-static.js` generated `public/`.
+  - A local static HTTP server from `public/` returned `200` for `index.html`,
+    `home.html`, `style.css`, `api.js`, `script.js`, `avatar.js`, and all
+    tracked image assets.
+- Local Wrangler dry-run was not completed because this Codex environment lacks
+  npm and the pnpm install path stopped on build-script approval; the repository
+  now avoids committing pnpm lock/workspace files so Cloudflare can install with
+  npm from `package.json`.

@@ -1,0 +1,17 @@
+name = "shinjuku0dooh0web"
+compatibility_date = "2026-07-08"
+main = "src/worker.js"
+
+[assets]
+directory = "public"
+binding = "ASSETS"
+not_found_handling = "404-page"
+run_worker_first = [
+  "/server/*",
+  "/README.md",
+  "/WORK_LOG*",
+  "/wrangler.toml",
+  "/package.json",
+  "/package-lock.json",
+  "/.gitignore"
+]
