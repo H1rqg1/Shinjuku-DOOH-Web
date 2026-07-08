@@ -21,3 +21,24 @@ Unity should poll:
 http://127.0.0.1:8000/encounters
 http://127.0.0.1:8000/stats
 ```
+
+## Cloudflare Pages
+
+Cloudflare Pages can deploy this repository as a static site without a build
+command. The static entry point is `index.html`, which redirects to
+`home.html`.
+
+`api.js` does not use the Cloudflare Pages origin as the API base URL. By
+default it sends API requests to:
+
+```text
+http://127.0.0.1:8000
+```
+
+To point the static app at another bridge server, open the app once with:
+
+```text
+https://<pages-domain>/?apiBaseUrl=http://<server-host>:8000
+```
+
+The value is saved in `localStorage` as `dooh_api_base_url`.

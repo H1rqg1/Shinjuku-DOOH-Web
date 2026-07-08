@@ -57,3 +57,23 @@
   - `POST /avatar` mapped `avatar_code=00030100` to
     `costume_fashion03`.
   - `POST /user-messages` saved selected message IDs.
+
+## 2026-07-08 Cloudflare Pages Static Deployment Fix
+
+- Added `index.html` so Cloudflare Pages has a static entry point.
+- Changed `api.js` API base URL resolution so HTTP/HTTPS hosting no longer
+  defaults to `window.location.origin`.
+- API base URL priority is now:
+  - `?apiBaseUrl=...` query parameter, saved to localStorage.
+  - `localStorage.dooh_api_base_url`.
+  - `http://127.0.0.1:8000`.
+- This prevents a Cloudflare Pages deployment from sending `/sync`,
+  `/message-options`, `/encounters`, or `/stats` requests to the Pages domain.
+- Static deployment verification:
+  - `node --check api.js` passed.
+  - Inline scripts in `index.html`, `home.html`, and `complete.html` parsed.
+  - Local static HTTP server returned `200` for:
+    `index.html`, `home.html`, `style.css`, `api.js`, `script.js`,
+    `avatar.js`, and all tracked images under `image/`.
+  - API base URL simulation for `https://example.pages.dev/home.html`
+    returned `http://127.0.0.1:8000`, not the Pages origin.

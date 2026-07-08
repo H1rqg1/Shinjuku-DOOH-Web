@@ -1,19 +1,24 @@
 // Shared API client for the DOOH web app.
-// The UI can be opened directly as file:// during development; in that case
-// the FastAPI server is expected at http://127.0.0.1:8000.
+// Cloudflare Pages is a static host, so API requests must never default to
+// the current page origin. Use localStorage or ?apiBaseUrl=... for overrides.
 
 const DEFAULT_API_BASE_URL = "http://127.0.0.1:8000";
 const API_BASE_URL = resolveApiBaseUrl();
 
 function resolveApiBaseUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const queryOverride = params.get("apiBaseUrl");
+
+    if (queryOverride && queryOverride.trim()) {
+        const normalizedOverride = queryOverride.trim().replace(/\/+$/, "");
+        localStorage.setItem("dooh_api_base_url", normalizedOverride);
+        return normalizedOverride;
+    }
+
     const override = localStorage.getItem("dooh_api_base_url");
 
     if (override && override.trim()) {
         return override.trim().replace(/\/+$/, "");
-    }
-
-    if (window.location.protocol === "http:" || window.location.protocol === "https:") {
-        return window.location.origin.replace(/\/+$/, "");
     }
 
     return DEFAULT_API_BASE_URL;
