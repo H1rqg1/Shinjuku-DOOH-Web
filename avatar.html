@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>アバター作成</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <main class="phone">
+
+        <!-- ヘッダー -->
+        <header class="page-header">
+            <h1>アバター作成</h1>
+            <p>あなたの見た目をカスタマイズします</p>
+        </header>
+
+        <!-- プレビュー -->
+        <section class="avatar-preview-area">
+            <div id="preview" class="preview"></div>
+        </section>
+
+        <!-- 選択ボタン -->
+        <section class="avatar-select-area">
+
+            <button class="avatar-button" onclick="openModal('outfit')">
+                コーディネート
+            </button>
+
+            <button class="avatar-button" onclick="openModal('hat')">
+                帽子
+            </button>
+
+            <button class="avatar-button" onclick="openModal('accessory')">
+                アクセサリー
+            </button>
+
+        </section>
+
+        <!-- フッター -->
+        <footer class="page-footer">
+            <button class="next-button" onclick="goToComplete()">
+                 次へ
+            </button>
+        </footer>
+
+    </main>
+
+    <!-- モーダル -->
+    <div id="modal" class="modal" onclick="closeModal()">
+
+        <div class="modal-content" onclick="event.stopPropagation()">
+
+            <h2 id="modalTitle">選択</h2>
+
+            <div id="modalList"></div>
+
+        </div>
+
+    </div>
+
+    <script src="api.js"></script>
+    <script src="avatar.js"></script>
+
+</body>
+
+</html>

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>作成完了</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <main class="phone">
+
+        <!-- ヘッダー -->
+        <header class="page-header">
+            <h1>アバター完成</h1>
+            <p>あなたの設定が完了しました</p>
+        </header>
+
+        <!-- プレビュー -->
+        <section class="avatar-preview-area">
+            <div id="preview" class="preview"></div>
+        </section>
+
+        <!-- 情報表示 -->
+        <section class="complete-info">
+            <h2 id="nicknameText">ユーザー</h2>
+            <p id="wordText">ひとこと未設定</p>
+        </section>
+
+        <!-- アクション -->
+        <footer class="page-footer">
+
+            <button class="next-button" onclick="goHome()">
+                完了
+            </button>
+
+        </footer>
+
+    </main>
+
+    <script src="api.js"></script>
+
+    <script>
+        // =============================
+        // データ読み込み
+        // =============================
+
+        const profile = JSON.parse(localStorage.getItem("profile"));
+        const avatar = JSON.parse(localStorage.getItem("avatar"));
+
+        // =============================
+        // 表示更新
+        // =============================
+
+        const preview = document.getElementById("preview");
+
+        // ベース
+        const base = document.createElement("img");
+        base.src = "image/sample.png";
+        base.className = "base-avatar";
+
+        base.onerror = function () {
+            this.remove();
+        };
+
+        preview.appendChild(base);
+
+        // =============================
+        // レイヤー描画
+        // =============================
+
+        function drawLayer(parent, data) {
+
+            if (!data) {
+                return;
+            }
+
+            if (data.image === "") {
+                return;
+            }
+
+            const img = document.createElement("img");
+
+            img.src = data.image;
+            img.className = "avatar-layer";
+
+            img.onerror = function () {
+                this.remove();
+            };
+
+            parent.appendChild(img);
+
+        }
+
+        drawLayer(preview, avatar?.outfit);
+        drawLayer(preview, avatar?.accessory);
+        drawLayer(preview, avatar?.hat);
+
+        // ニックネーム
+        document.getElementById("nicknameText").textContent =
+            profile?.nickname || "ユーザー";
+
+        // 一言（ランダム表示）
+        const words = profile?.words || ["未設定"];
+        const randomWord = words[Math.floor(Math.random() * words.length)];
+        document.getElementById("wordText").textContent = randomWord;
+
+        // =============================
+        // 完了処理
+        // =============================
+
+        async function goHome() {
+
+            const result = await syncToServer();
+
+            alert(result.message);
+
+            window.location.href = "home.html";
+
+        }
+    </script>
+
+</body>
+
+</html>

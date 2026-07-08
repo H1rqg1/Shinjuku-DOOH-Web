@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ホーム</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <main class="phone">
+
+        <!-- ヘッダー -->
+        <header class="home-header">
+            <p class="home-greeting-sub" id="greetingSub">おかえりなさい</p>
+            <h1 class="home-greeting-main">
+                <span id="nicknameText">ユーザー</span>さん
+            </h1>
+        </header>
+
+        <!-- ステータスカード -->
+        <section class="status-card">
+
+            <div class="avatar-spotlight">
+                <div id="speechBubble" class="speech-bubble"></div>
+                <div id="preview" class="preview"></div>
+            </div>
+
+        </section>
+
+        <!-- メニュー -->
+        <section class="menu-grid">
+
+            <button class="menu-tile menu-tile-blue" onclick="goEdit('profile.html')">
+                <span class="menu-icon">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="8" r="3.4" stroke="currentColor" stroke-width="1.8"/>
+                        <path d="M5 19.5C5 16 8 14 12 14C16 14 19 16 19 19.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                    </svg>
+                </span>
+                <span class="menu-label">プロフィール編集</span>
+                <span class="menu-caption">名前・ひとこと</span>
+            </button>
+
+            <button class="menu-tile menu-tile-green" onclick="goEdit('avatar.html')">
+                <span class="menu-icon">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M9 4L12 6L15 4L18 6.5L16 9V19.5H8V9L6 6.5L9 4Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                    </svg>
+                </span>
+                <span class="menu-label">アバター編集</span>
+                <span class="menu-caption">コーデ・帽子・アクセ</span>
+            </button>
+
+        </section>
+
+    </main>
+
+    <script>
+        // =============================
+        // 編集モードで遷移
+        // =============================
+
+        // ホームに戻ってきた時点で編集モードは終了しているのでリセット
+        sessionStorage.removeItem("editMode");
+
+        function goEdit(page) {
+
+            sessionStorage.setItem("editMode", "true");
+
+            location.href = page;
+
+        }
+
+        // =============================
+        // データ読み込み
+        // =============================
+
+        const profile = JSON.parse(localStorage.getItem("profile"));
+        const avatar = JSON.parse(localStorage.getItem("avatar"));
+
+        // =============================
+        // 時間帯に応じた挨拶
+        // =============================
+
+        const hour = new Date().getHours();
+        let greeting = "おかえりなさい";
+
+        if (hour >= 5 && hour < 11) {
+
+            greeting = "おはようございます";
+
+        } else if (hour >= 11 && hour < 17) {
+
+            greeting = "こんにちは";
+
+        } else if (hour >= 17 && hour < 22) {
+
+            greeting = "こんばんは";
+
+        } else {
+
+            greeting = "夜更かしですね";
+
+        }
+
+        document.getElementById("greetingSub").textContent = greeting;
+
+        // =============================
+        // プロフィール表示
+        // =============================
+
+        document.getElementById("nicknameText").textContent =
+            profile?.nickname || "ユーザー";
+
+        // =============================
+        // アバター表示
+        // =============================
+
+        const preview = document.getElementById("preview");
+
+        const base = document.createElement("img");
+        base.src = "image/sample.png";
+        base.className = "base-avatar";
+
+        base.onerror = function () {
+            this.remove();
+        };
+
+        preview.appendChild(base);
+
+        function drawLayer(parent, data) {
+
+            if (!data) {
+                return;
+            }
+
+            if (data.image === "") {
+                return;
+            }
+
+            const img = document.createElement("img");
+
+            img.src = data.image;
+            img.className = "avatar-layer";
+
+            img.onerror = function () {
+                this.remove();
+            };
+
+            parent.appendChild(img);
+
+        }
+
+        drawLayer(preview, avatar?.outfit);
+        drawLayer(preview, avatar?.accessory);
+        drawLayer(preview, avatar?.hat);
+
+        // =============================
+        // アバターのひとりごと
+        // =============================
+
+        const avatarLines = [
+            "今日もいい天気ですね！",
+            "なんだか眠くなってきました…",
+            "お腹すいたなあ",
+            "今日は何をしようかな",
+            "ちょっと伸びをしてもいいですか？",
+            "誰かと話したい気分です",
+            "このコーデ、気に入ってます！",
+            "帽子のかぶり心地、最高です",
+            "今日はいい一日になりそうです",
+            "少し肌寒いですね",
+            "何か面白いことないかな〜",
+            "今、ちょっとぼーっとしてました",
+            "お茶でも飲みたい気分です",
+            "今日の予定、確認しましたか？",
+            "深呼吸、大事ですよ",
+            "たまには休憩も必要です",
+            "何かいいことありましたか？",
+            "今日も一日お疲れさまです",
+            "そろそろお昼の時間ですね",
+            "夜はゆっくり休んでくださいね",
+            "最近、調子はどうですか？",
+            "ちょっとストレッチしませんか？",
+            "水分補給、忘れずに！",
+            "今日の気分は晴れです",
+            "なんだかそわそわします",
+            "新しい服、着てみたいな",
+            "音楽でも聴きたい気分",
+            "電磁波攻撃されている！？",
+            "今日は静かな一日ですね",
+            "ちょっとお腹が空いてきました",
+            "頑張り屋さんですね、あなたは",
+            "無理はしないでくださいね",
+            "今日も一緒にいられて嬉しいです",
+            "何か楽しいこと考えましょうか",
+            "たまにはぼーっとするのもいいですよ",
+            "コーヒーの香りが恋しいです",
+            "今日は何色の気分ですか？",
+            "少し肩がこってる気がします",
+            "背伸びしてみようかな",
+            "今日の空、見ましたか？",
+            "そろそろ模様替えしたいな",
+            "新しい帽子、探してみようかな",
+            "アクセサリー、変えてみますか？",
+            "今日は特別な日ですか？",
+            "何か達成しましたか？えらい！",
+            "ちょっとひと休みしましょう",
+            "今の気分、教えてください",
+            "季節の変わり目、体調に気をつけて",
+            "今日はどんな一日でしたか？",
+            "小さな幸せ、見つけましたか？",
+            "ぐーっと伸びをしたい気分です",
+            "あくびが出ちゃいました",
+            "今日はちょっと眠いかも",
+            "元気いっぱいです！",
+            "のんびり過ごしたい一日です",
+            "何か新しいこと始めたいな",
+            "今日も見てくれてありがとう",
+            "一緒に頑張りましょうね",
+            "たまにはおしゃれもいいですね",
+            "この服、動きやすいです",
+            "今日は風が気持ちいいです",
+            "少し肌寒いので上着が欲しいかも",
+            "何か甘いもの食べたいな",
+            "今日は静かに過ごしたい気分です",
+            "ちょっとおしゃべりしたい気分",
+            "今、何を考えてますか？",
+            "そろそろ模様替えの季節ですね",
+            "今日の一言、決めましたか？",
+            "気分転換、してみませんか？",
+            "少し疲れが溜まってませんか？",
+            "今日はゆっくりめでいきましょう",
+            "何か嬉しいことありましたか？",
+            "小さな一歩も立派な前進です",
+            "今日も見守ってますよ",
+            "ちょっと肩の力を抜きましょう",
+            "今の時間、大切にしてくださいね",
+            "今日はどんな気分ですか？",
+            "少し休憩を挟みませんか？",
+            "今日も一日ありがとうございました",
+            "そろそろ何か飲みたいな",
+            "ふと、あなたのこと考えてました",
+            "今日は特に何もない、それもいいですね",
+            "何をしていても応援してます",
+            "今日はゆったりモードです",
+            "少しだけ、おしゃべりしませんか？",
+            "今日の空、きれいでしたか？",
+            "ちょっとお洒落したい気分です",
+            "今日も元気に過ごしましょう",
+            "何か食べたいものありますか？",
+            "今日は静かな夜になりそうです",
+            "少し眠たい目をこすってます",
+            "今、なんだか穏やかな気分です",
+            "たまにはゆっくり深呼吸を",
+            "今日もそばにいますね",
+            "何気ない日常、大事にしたいです",
+            "今日はちょっとお茶目な気分です",
+            "ふふ、なんだか楽しい気分です",
+            "今日はどんな冒険をしましょうか",
+            "小さなことにも幸せを感じます",
+            "今日も一緒に過ごせて嬉しいです"
+        ];
+
+        let speechHideTimer = null;
+
+        function speakRandomLine() {
+
+            const bubble = document.getElementById("speechBubble");
+
+            if (!bubble) {
+
+                return;
+
+            }
+
+            const line = avatarLines[
+                Math.floor(Math.random() * avatarLines.length)
+            ];
+
+            bubble.textContent = line;
+
+            bubble.classList.add("show");
+
+            clearTimeout(speechHideTimer);
+
+            speechHideTimer = setTimeout(() => {
+
+                bubble.classList.remove("show");
+
+            }, 4000);
+
+        }
+
+        function scheduleAvatarSpeech() {
+
+            // 次にしゃべるかどうかを判定するまでの間隔（3〜8秒）
+            const delay = 3000 + Math.random() * 5000;
+
+            setTimeout(() => {
+
+                // 約60%の確率でしゃべる
+                if (Math.random() < 0.4) {
+
+                    speakRandomLine();
+
+                }
+
+                scheduleAvatarSpeech();
+
+            }, delay);
+
+        }
+
+        scheduleAvatarSpeech();
+    </script>
+
+</body>
+
+</html>
