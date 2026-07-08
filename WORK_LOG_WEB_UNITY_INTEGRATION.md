@@ -30,3 +30,30 @@
   - `python -m py_compile server/app.py` passed.
   - Short-lived Uvicorn HTTP test passed on port `8765`:
     `/sync` -> `/encounters` -> `/stats` -> `/message-options`.
+
+## 2026-07-08 Completion Audit
+
+- Confirmed local `main` and `origin/main` pointed to commit `165bdb3`.
+- Rechecked communication syntax:
+  - `node --check api.js`
+  - `python -m py_compile server/app.py`
+  - Extracted and parsed inline scripts in `home.html` and `complete.html`.
+- Ran a short-lived Uvicorn HTTP audit on port `8770`.
+- Verified static app delivery:
+  - `GET /home.html` returned HTTP `200`.
+- Verified Web-to-Unity bridge flow:
+  - `DELETE /encounters` reset the Unity queue.
+  - `POST /sync` accepted web payload:
+    `user_id=audit_user`, `display_name=Audit User`,
+    `avatar_code=00020103`, message IDs `talk_hello,status_break`.
+  - `GET /encounters` returned one Unity-compatible encounter with:
+    `my_id=audit_user`, `target_id=Audit User`,
+    `costume_id=costume_fashion02`, `avatar_code=00020103`,
+    and the selected message IDs.
+  - `GET /stats` returned `daily_detected_count=1` and
+    `daily_encounter_count=1`.
+- Verified compatibility endpoints:
+  - `GET /message-options` returned 8 message options.
+  - `POST /avatar` mapped `avatar_code=00030100` to
+    `costume_fashion03`.
+  - `POST /user-messages` saved selected message IDs.
