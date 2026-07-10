@@ -1169,7 +1169,9 @@ button {
 .intro-body {
     min-height: 100vh;
     overflow: hidden;
-    background: #f4f7f6;
+    background:
+        radial-gradient(circle at 50% 42%, rgba(255,255,255,.08), rgba(255,255,255,0) 34%),
+        linear-gradient(180deg, #121616 0%, #070909 100%);
 }
 
 .intro-screen {
@@ -1181,27 +1183,33 @@ button {
     align-items: center;
     gap: 22px;
     text-align: center;
+    transition: opacity .7s ease, transform .7s cubic-bezier(.4, 0, .2, 1);
 }
 
 .intro-title {
     max-width: 330px;
-    color: #253238;
+    color: #f4f7f6;
     font-size: 34px;
     font-weight: 800;
     line-height: 1.15;
-    text-shadow: 0 12px 30px rgba(82, 111, 120, .16);
+    text-shadow: 0 18px 44px rgba(0,0,0,.44);
     opacity: 0;
-    transform: translateY(8px);
-    animation: introTitleIn 1.8s cubic-bezier(.22, 1, .36, 1) forwards;
+    transform: translateY(10px);
+    animation: introTitleIn 1.55s cubic-bezier(.22, 1, .36, 1) forwards;
 }
 
 .intro-link a {
-    color: #607d8b;
+    color: rgba(244,247,246,.62);
     font-size: 14px;
     text-decoration: none;
     opacity: 0;
     animation: introLinkIn 1.2s ease forwards;
     animation-delay: .65s;
+}
+
+.intro-screen.intro-exit {
+    opacity: 0;
+    transform: translateY(-44px);
 }
 
 @keyframes introTitleIn {
@@ -1237,17 +1245,17 @@ button {
 }
 
 .login-avatar {
-    width: 150px;
-    height: 180px;
+    width: 160px;
+    height: 214px;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .login-avatar img {
     position: absolute;
     left: 50%;
     bottom: 0;
-    width: 130px;
+    width: 132px;
     transform: translateX(-50%);
 }
 

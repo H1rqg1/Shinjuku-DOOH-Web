@@ -17,9 +17,16 @@
     <script src="app-config.js"></script>
     <script src="account.js"></script>
     <script>
+        const introScreen = document.querySelector(".intro-screen");
+        const nextPage = window.DOOH_ACCOUNT.routeAfterIntro();
+
         setTimeout(() => {
-            window.location.replace(window.DOOH_ACCOUNT.routeAfterIntro());
-        }, 1800);
+            introScreen.classList.add("intro-exit");
+
+            setTimeout(() => {
+                window.location.replace(nextPage);
+            }, 700);
+        }, 1700);
     </script>
 </body>
 

@@ -203,3 +203,13 @@
   - Added a quiet delayed fade-in for the `Start` link.
 - Replaced the high-contrast intro background with a quieter light background
   and dark title text.
+
+## 2026-07-10 Intro Exit and Login Avatar Fix
+
+- Updated the intro to better match the requested calm/stylish reference:
+  - Dark, quiet background.
+  - The intro title fades in calmly.
+  - Before routing to the next screen, the intro logo area moves upward and
+    fades out.
+- Adjusted the saved-account login avatar preview so the top of the head is not
+  clipped.
