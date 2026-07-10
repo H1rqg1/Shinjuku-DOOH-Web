@@ -130,6 +130,22 @@ async function fetchMessageOptions() {
     }
 }
 
+async function fetchRecentProfiles() {
+    try {
+        const res = await fetch(`${API_BASE_URL}/profiles/recent`);
+
+        if (!res.ok) {
+            throw new Error("status " + res.status);
+        }
+
+        const data = await res.json();
+        return Array.isArray(data.profiles) ? data.profiles : [];
+    } catch (err) {
+        console.warn("Failed to fetch recent profiles.", err);
+        return [];
+    }
+}
+
 function validateBeforeSave({ userId, outfitId, avatarCode, messageIds }) {
     if (!userId) {
         return "user_id is missing";
@@ -195,7 +211,9 @@ async function syncToServer() {
         display_name: displayName,
         avatar_code: avatarCode,
         costume_id: buildCostumeId(outfitId),
-        selected_message_ids: messageIds
+        selected_message_ids: messageIds,
+        interest_ids: Array.isArray(profile.interestIds) ? profile.interestIds : [],
+        interests: Array.isArray(profile.interests) ? profile.interests : []
     };
 
     try {

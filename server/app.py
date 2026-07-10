@@ -51,6 +51,8 @@ class UserMessagesPayload(BaseModel):
 
 class SyncPayload(AvatarPayload):
     selected_message_ids: List[str] = Field(default_factory=list)
+    interest_ids: List[str] = Field(default_factory=list)
+    interests: List[str] = Field(default_factory=list)
 
 
 class EncounterPayload(BaseModel):
@@ -203,6 +205,22 @@ def update_messages(state: Dict[str, Any], payload: UserMessagesPayload) -> Dict
     return user
 
 
+def update_profile_exchange_fields(state: Dict[str, Any], payload: SyncPayload) -> Dict[str, Any]:
+    user = get_user(state, payload.user_id)
+
+    user["interest_ids"] = [
+        interest_id for interest_id in (normalize_text(value) for value in payload.interest_ids)
+        if interest_id is not None
+    ][:5]
+    user["interests"] = [
+        interest for interest in (normalize_text(value) for value in payload.interests)
+        if interest is not None
+    ][:5]
+    user["updated_at"] = now_iso()
+
+    return user
+
+
 def append_encounter(state: Dict[str, Any], user: Dict[str, Any]) -> Dict[str, Any]:
     user_id = normalize_text(user.get("user_id"))
     if user_id is None:
@@ -269,6 +287,44 @@ def build_today_stats(encounters: List[Dict[str, Any]]) -> Dict[str, Any]:
     }
 
 
+def build_recent_profiles(state: Dict[str, Any], limit: int = 10) -> List[Dict[str, Any]]:
+    profiles = []
+    seen_user_ids = set()
+
+    for encounter in reversed(state["encounters"]):
+        if not isinstance(encounter, dict):
+            continue
+
+        user_id = normalize_text(encounter.get("my_id"))
+        if user_id is None or user_id in seen_user_ids:
+            continue
+
+        user = state["users"].get(user_id)
+        if not isinstance(user, dict):
+            user = {}
+
+        profiles.append(
+            {
+                "user_id": user_id,
+                "display_name": (
+                    normalize_text(user.get("display_name"))
+                    or normalize_text(encounter.get("display_name"))
+                    or "Unknown"
+                ),
+                "interests": list(user.get("interests") or [])[:5],
+                "interest_ids": list(user.get("interest_ids") or [])[:5],
+                "message_ids": list(user.get("selected_message_ids") or encounter.get("message_ids") or [])[:3],
+                "last_seen_at": normalize_text(encounter.get("timestamp")),
+            }
+        )
+        seen_user_ids.add(user_id)
+
+        if len(profiles) >= limit:
+            break
+
+    return profiles
+
+
 @app.get("/")
 def home() -> FileResponse:
     return FileResponse(PROJECT_DIR / "home.html")
@@ -292,6 +348,7 @@ def sync_user(payload: SyncPayload) -> Dict[str, Any]:
             user_id=payload.user_id,
             selected_message_ids=payload.selected_message_ids,
         ))
+        user = update_profile_exchange_fields(state, payload)
         encounter = append_encounter(state, user)
         write_state(state)
 
@@ -349,6 +406,14 @@ def list_encounters() -> Dict[str, Any]:
         state = read_state()
 
     return {"encounters": state["encounters"]}
+
+
+@app.get("/profiles/recent")
+def recent_profiles() -> Dict[str, Any]:
+    with data_lock:
+        state = read_state()
+
+    return {"profiles": build_recent_profiles(state)}
 
 
 @app.get("/stats")

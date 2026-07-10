@@ -161,3 +161,36 @@
   - `node scripts/build-static.js` generated `public/login.html` and
     `public/account.js`.
   - Local static server from `public/` returned `200` for login/account assets.
+
+## 2026-07-10 Home Live Info and Profile Exchange
+
+- Added a compact home-header panel for Tokyo time and Tokyo temperature.
+  - Time is calculated in the browser with the `Asia/Tokyo` timezone.
+  - Temperature is fetched from Open-Meteo by latitude/longitude for Tokyo.
+- Added profile interests to the profile setup flow.
+  - Interests are saved in `localStorage.profile` as `interests` and
+    `interestIds`.
+  - They are sent to the FastAPI bridge only for Web profile exchange storage.
+- Kept Unity/DOOH payload separation:
+  - `POST /sync` accepts `interests` and `interest_ids`.
+  - `GET /encounters` still returns only Unity-facing data such as
+    `costume_id`, `avatar_code`, `display_name`, and `message_ids`.
+  - Interests are exposed through the new Web-facing `GET /profiles/recent`
+    endpoint instead.
+- Added a home "すれ違った人" profile exchange panel.
+  - It reads recent profiles from `GET /profiles/recent`.
+  - If the bridge is unavailable, it falls back to showing the current local
+    profile so the UI does not look broken during static-only use.
+- Added `home.js` and included it in the static build output.
+- Verification:
+  - `node --check` passed for `api.js`, `script.js`, `home.js`, and
+    `scripts/build-static.js`.
+  - `python -m py_compile server/app.py` passed.
+  - Inline scripts in `home.html` and `profile.html` parsed.
+  - `node scripts/build-static.js` copied 14 static entries, including
+    `home.js`, into `public/`.
+  - Local static HTTP serving from `public/` returned `200` for core HTML, CSS,
+    and JS files.
+  - Short-lived FastAPI check confirmed `GET /profiles/recent` returns
+    interests while the latest Unity-facing `/encounters` item does not include
+    `interests` or `interest_ids`.

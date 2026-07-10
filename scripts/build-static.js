@@ -14,6 +14,7 @@ const entries = [
     "app-config.js",
     "account.js",
     "api.js",
+    "home.js",
     "script.js",
     "avatar.js",
     "image"

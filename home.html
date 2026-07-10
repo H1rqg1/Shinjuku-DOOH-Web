@@ -11,7 +11,7 @@
 
 <body>
 
-    <main class="phone">
+    <main class="phone home-phone">
 
         <!-- ヘッダー -->
         <header class="home-header">
@@ -19,6 +19,16 @@
             <h1 class="home-greeting-main">
                 <span id="nicknameText">ユーザー</span>さん
             </h1>
+            <div class="home-meta-panel" aria-label="東京の現在情報">
+                <div class="home-meta-item">
+                    <span class="home-meta-label">Tokyo</span>
+                    <span class="home-meta-value" id="tokyoTime">--:--</span>
+                </div>
+                <div class="home-meta-item">
+                    <span class="home-meta-label">Temp</span>
+                    <span class="home-meta-value" id="tokyoTemp">--°C</span>
+                </div>
+            </div>
         </header>
 
         <!-- ステータスカード -->
@@ -57,8 +67,26 @@
 
         </section>
 
+        <section class="encounter-section" aria-labelledby="encounterTitle">
+            <div class="encounter-header">
+                <div>
+                    <p class="encounter-kicker">Profile Exchange</p>
+                    <h2 id="encounterTitle">すれ違った人</h2>
+                </div>
+                <button type="button" class="encounter-refresh" id="refreshProfiles" aria-label="更新">
+                    ↻
+                </button>
+            </div>
+            <div id="encounterProfiles" class="encounter-list">
+                <p class="encounter-empty">まだプロフィールがありません</p>
+            </div>
+        </section>
+
     </main>
 
+    <script src="app-config.js"></script>
+    <script src="api.js"></script>
+    <script src="home.js"></script>
     <script>
         // =============================
         // 編集モードで遷移

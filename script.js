@@ -8,6 +8,22 @@ const closeButton = document.getElementById("closeModal");
 
 const wordList = document.getElementById("wordList");
 const selectedArea = document.getElementById("selectedWords");
+const interestList = document.getElementById("interestList");
+
+const interestOptions = [
+    { id: "interest_music", text: "音楽" },
+    { id: "interest_game", text: "ゲーム" },
+    { id: "interest_anime", text: "アニメ" },
+    { id: "interest_art", text: "アート" },
+    { id: "interest_food", text: "グルメ" },
+    { id: "interest_travel", text: "旅行" },
+    { id: "interest_fashion", text: "ファッション" },
+    { id: "interest_sports", text: "スポーツ" },
+    { id: "interest_photo", text: "写真" },
+    { id: "interest_tech", text: "テクノロジー" },
+    { id: "interest_movie", text: "映画" },
+    { id: "interest_walk", text: "散歩" }
+];
 
 
 //==============================
@@ -102,6 +118,59 @@ let categories = fallbackCategories;
 //==============================
 
 let selectedWords = [];
+let selectedInterests = [];
+
+function createInterestButtons() {
+    if (!interestList) {
+        return;
+    }
+
+    interestList.innerHTML = "";
+
+    interestOptions.forEach(interest => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "interest-button";
+        button.textContent = interest.text;
+        button.dataset.id = interest.id;
+
+        button.addEventListener("click", () => {
+            toggleInterest(interest, button);
+        });
+
+        interestList.appendChild(button);
+    });
+}
+
+function toggleInterest(interest, button) {
+    const index = selectedInterests.findIndex(item => item.id === interest.id);
+
+    if (index !== -1) {
+        selectedInterests.splice(index, 1);
+        button.classList.remove("selected");
+        return;
+    }
+
+    if (selectedInterests.length >= 5) {
+        alert("好きなことは5つまで選択できます。");
+        return;
+    }
+
+    selectedInterests.push(interest);
+    button.classList.add("selected");
+}
+
+function restoreInterestButtons() {
+    if (!interestList) {
+        return;
+    }
+
+    document.querySelectorAll(".interest-button").forEach(button => {
+        if (selectedInterests.some(item => item.id === button.dataset.id)) {
+            button.classList.add("selected");
+        }
+    });
+}
 
 
 //==============================
@@ -320,6 +389,17 @@ function prefillProfile() {
     document.getElementById("nickname").value = saved.nickname || "";
     document.getElementById("age").value = saved.age || "";
 
+    if (Array.isArray(saved.interestIds) && Array.isArray(saved.interests)) {
+        saved.interests.forEach((text, i) => {
+            selectedInterests.push({
+                id: saved.interestIds[i],
+                text
+            });
+        });
+
+        restoreInterestButtons();
+    }
+
     if (Array.isArray(saved.words) && Array.isArray(saved.messageIds)) {
 
         saved.words.forEach((text, i) => {
@@ -377,6 +457,7 @@ async function initMessageOptions() {
 }
 
 initMessageOptions();
+createInterestButtons();
 
 // =============================
 // 入力値チェック → 遷移
@@ -413,6 +494,8 @@ async function goToAvatar() {
     const profileData = {
         nickname,
         age,
+        interests: selectedInterests.map(item => item.text),
+        interestIds: selectedInterests.map(item => item.id),
         words: selectedWords.map(w => w.text),
         messageIds: selectedWords.map(w => w.id)
     };
