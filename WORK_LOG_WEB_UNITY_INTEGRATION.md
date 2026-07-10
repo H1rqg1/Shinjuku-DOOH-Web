@@ -194,3 +194,12 @@
   - Short-lived FastAPI check confirmed `GET /profiles/recent` returns
     interests while the latest Unity-facing `/encounters` item does not include
     `interests` or `interest_ids`.
+
+## 2026-07-10 Calm Intro Animation
+
+- Adjusted the `IPUT×DOOH project` intro title animation to feel calmer.
+  - Removed the scale-in motion.
+  - Changed the title to a slower fade with a small vertical movement.
+  - Added a quiet delayed fade-in for the `Start` link.
+- Replaced the high-contrast intro background with a quieter light background
+  and dark title text.
