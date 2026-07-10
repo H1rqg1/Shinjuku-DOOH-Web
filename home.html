@@ -82,6 +82,10 @@
         const profile = JSON.parse(localStorage.getItem("profile"));
         const avatar = JSON.parse(localStorage.getItem("avatar"));
 
+        if (!profile) {
+            window.location.replace("profile.html" + window.location.search);
+        }
+
         // =============================
         // 時間帯に応じた挨拶
         // =============================

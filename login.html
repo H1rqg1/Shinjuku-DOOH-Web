@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPUT x DOOH project</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <main class="phone login-page">
+        <header class="page-header">
+            <h1>IPUT×DOOH project</h1>
+            <p>保存済みアカウント</p>
+        </header>
+
+        <section class="login-card">
+            <div class="login-avatar">
+                <img src="image/sample.png" alt="">
+            </div>
+
+            <h2 id="loginName">User</h2>
+            <p id="loginMeta">ID</p>
+
+            <button class="next-button" type="button" id="continueButton">
+                ログインして続ける
+            </button>
+
+            <button class="secondary-button" type="button" id="editButton">
+                プロフィールを編集
+            </button>
+
+            <button class="text-button" type="button" id="newAccountButton">
+                新しいアカウントで始める
+            </button>
+        </section>
+    </main>
+
+    <script src="app-config.js"></script>
+    <script src="account.js"></script>
+    <script>
+        const account = window.DOOH_ACCOUNT.getSavedAccount();
+
+        if (!account) {
+            window.location.replace("profile.html" + window.location.search);
+        } else {
+            document.getElementById("loginName").textContent = account.nickname;
+            document.getElementById("loginMeta").textContent =
+                `${account.messageCount} messages / ${account.userId.slice(0, 8)}`;
+        }
+
+        document.getElementById("continueButton").addEventListener("click", () => {
+            window.DOOH_ACCOUNT.continueSavedAccount();
+        });
+
+        document.getElementById("editButton").addEventListener("click", () => {
+            sessionStorage.setItem("editMode", "true");
+            window.location.href = "profile.html" + window.location.search;
+        });
+
+        document.getElementById("newAccountButton").addEventListener("click", () => {
+            if (confirm("保存済みの端末内データを消して新しく始めますか？")) {
+                window.DOOH_ACCOUNT.startNewAccount();
+            }
+        });
+    </script>
+</body>
+
+</html>

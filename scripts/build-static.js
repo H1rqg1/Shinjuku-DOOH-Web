@@ -6,11 +6,13 @@ const outputDir = path.join(rootDir, "public");
 const entries = [
     "index.html",
     "home.html",
+    "login.html",
     "profile.html",
     "avatar.html",
     "complete.html",
     "style.css",
     "app-config.js",
+    "account.js",
     "api.js",
     "script.js",
     "avatar.js",

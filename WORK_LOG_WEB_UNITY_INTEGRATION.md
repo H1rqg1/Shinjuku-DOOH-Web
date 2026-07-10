@@ -134,3 +134,30 @@
     `profile.html`.
   - Added intro title styles to `style.css`.
   - Added `app-config.js` to the static build output list.
+
+## 2026-07-10 Saved Account Login
+
+- Added same-device saved account login using existing `localStorage` data:
+  `user_id`, `profile`, and `avatar`.
+- This keeps the same account on the same browser/device. Cross-device account
+  recovery would require a shared backend or external authentication later.
+- Added `account.js` to centralize saved account checks and routing.
+- Added `login.html` so returning users can continue with the same account,
+  edit the profile, or intentionally start a new account.
+- Updated `index.html` intro routing:
+  - First visit without profile data -> `profile.html`
+  - Returning visit with saved profile and user ID -> `login.html`
+- Added a guard in `home.html` so direct access without profile data returns to
+  profile setup.
+- Added login screen styling and included `login.html` / `account.js` in the
+  static build output.
+- Verification:
+  - `node --check account.js`, `app-config.js`, `api.js`, and
+    `scripts/build-static.js`.
+  - Parsed inline scripts in `index.html`, `login.html`, `home.html`,
+    `profile.html`, `avatar.html`, and `complete.html`.
+  - VM routing check:
+    first visit -> `profile.html`, returning saved account -> `login.html`.
+  - `node scripts/build-static.js` generated `public/login.html` and
+    `public/account.js`.
+  - Local static server from `public/` returned `200` for login/account assets.

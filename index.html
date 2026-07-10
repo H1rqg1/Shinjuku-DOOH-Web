@@ -14,9 +14,11 @@
         <p class="intro-link"><a href="profile.html">Start</a></p>
     </main>
 
+    <script src="app-config.js"></script>
+    <script src="account.js"></script>
     <script>
         setTimeout(() => {
-            window.location.replace("profile.html" + window.location.search);
+            window.location.replace(window.DOOH_ACCOUNT.routeAfterIntro());
         }, 1800);
     </script>
 </body>

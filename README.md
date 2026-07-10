@@ -56,3 +56,7 @@ The value is saved in `localStorage` as `dooh_api_base_url`.
 
 Opening the root URL shows the `IPUT×DOOH project` intro and then moves to
 `profile.html`.
+
+After a profile is saved, the same browser keeps the account in localStorage.
+Opening the root URL again moves to `login.html`, where the user can continue
+with the saved account.
