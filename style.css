@@ -1085,3 +1085,51 @@ button {
     transform: translateX(-50%) translateY(0);
 
 }
+
+/* =========================
+   Intro title
+========================= */
+
+.intro-body {
+    min-height: 100vh;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 50% 42%, rgba(255,255,255,.92), rgba(255,255,255,.18) 38%, transparent 58%),
+        linear-gradient(135deg, #0f172a 0%, #1d4ed8 48%, #f97316 100%);
+}
+
+.intro-screen {
+    width: min(390px, 95vw);
+    aspect-ratio: 9 / 16;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 22px;
+    text-align: center;
+}
+
+.intro-title {
+    max-width: 330px;
+    color: #ffffff;
+    font-size: 34px;
+    font-weight: 800;
+    line-height: 1.15;
+    text-shadow: 0 12px 32px rgba(0,0,0,.35);
+    opacity: 0;
+    transform: translateY(18px) scale(.96);
+    animation: introTitleIn 1.15s ease forwards;
+}
+
+.intro-link a {
+    color: rgba(255,255,255,.86);
+    font-size: 14px;
+    text-decoration: none;
+}
+
+@keyframes introTitleIn {
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}

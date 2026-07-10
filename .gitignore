@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 server/data/
+.vs/
 node_modules/
 .pnpm-store/
 .wrangler/

@@ -53,3 +53,6 @@ https://<pages-domain>/?apiBaseUrl=http://<server-host>:8000
 ```
 
 The value is saved in `localStorage` as `dooh_api_base_url`.
+
+Opening the root URL shows the `IPUT×DOOH project` intro and then moves to
+`profile.html`.

@@ -2,20 +2,22 @@
 // Cloudflare Pages is a static host, so API requests must never default to
 // the current page origin. Use localStorage or ?apiBaseUrl=... for overrides.
 
-const DEFAULT_API_BASE_URL = "http://127.0.0.1:8000";
+const DEFAULT_API_BASE_URL = window.DOOH_CONFIG?.defaultApiBaseUrl || "http://127.0.0.1:8000";
+const API_BASE_URL_STORAGE_KEY = window.DOOH_CONFIG?.apiBaseUrlStorageKey || "dooh_api_base_url";
+const API_BASE_URL_QUERY_KEY = window.DOOH_CONFIG?.apiBaseUrlQueryKey || "apiBaseUrl";
 const API_BASE_URL = resolveApiBaseUrl();
 
 function resolveApiBaseUrl() {
     const params = new URLSearchParams(window.location.search);
-    const queryOverride = params.get("apiBaseUrl");
+    const queryOverride = params.get(API_BASE_URL_QUERY_KEY);
 
     if (queryOverride && queryOverride.trim()) {
         const normalizedOverride = queryOverride.trim().replace(/\/+$/, "");
-        localStorage.setItem("dooh_api_base_url", normalizedOverride);
+        localStorage.setItem(API_BASE_URL_STORAGE_KEY, normalizedOverride);
         return normalizedOverride;
     }
 
-    const override = localStorage.getItem("dooh_api_base_url");
+    const override = localStorage.getItem(API_BASE_URL_STORAGE_KEY);
 
     if (override && override.trim()) {
         return override.trim().replace(/\/+$/, "");
@@ -28,8 +30,8 @@ function getUserId() {
     let userId = localStorage.getItem("user_id");
 
     if (!userId) {
-        userId = (window.crypto && crypto.randomUUID)
-            ? crypto.randomUUID()
+        userId = (window.crypto && window.crypto.randomUUID)
+            ? window.crypto.randomUUID()
             : "user_" + Date.now() + "_" + Math.random().toString(16).slice(2);
 
         localStorage.setItem("user_id", userId);
@@ -54,6 +56,14 @@ function buildCostumeId(outfitId) {
     }
 
     return null;
+}
+
+function createDefaultAvatar() {
+    return {
+        outfit: { id: 0, name: "none", image: "" },
+        hat: { id: 0, name: "none", image: "" },
+        accessory: { id: 0, name: "none", image: "" }
+    };
 }
 
 async function postJson(path, payload) {
@@ -146,10 +156,15 @@ function validateBeforeSave({ userId, outfitId, avatarCode, messageIds }) {
 
 async function syncToServer() {
     const profile = JSON.parse(localStorage.getItem("profile") || "null");
-    const avatar = JSON.parse(localStorage.getItem("avatar") || "null");
+    let avatar = JSON.parse(localStorage.getItem("avatar") || "null");
 
-    if (!profile || !avatar) {
+    if (!profile) {
         return { ok: false, message: "保存するデータが不足しています" };
+    }
+
+    if (!avatar) {
+        avatar = createDefaultAvatar();
+        localStorage.setItem("avatar", JSON.stringify(avatar));
     }
 
     const userId = getUserId();

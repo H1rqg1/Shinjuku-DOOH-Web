@@ -4,21 +4,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="refresh" content="0; url=home.html">
-    <title>Shinjuku DOOH Web</title>
+    <title>IPUT x DOOH project</title>
     <link rel="stylesheet" href="style.css">
 </head>
 
-<body>
-    <main class="phone">
-        <header class="page-header">
-            <h1>Shinjuku DOOH Web</h1>
-            <p><a href="home.html">home.html</a></p>
-        </header>
+<body class="intro-body">
+    <main class="intro-screen">
+        <h1 class="intro-title">IPUT×DOOH project</h1>
+        <p class="intro-link"><a href="profile.html">Start</a></p>
     </main>
 
     <script>
-        window.location.replace("home.html" + window.location.search);
+        setTimeout(() => {
+            window.location.replace("profile.html" + window.location.search);
+        }, 1800);
     </script>
 </body>
 

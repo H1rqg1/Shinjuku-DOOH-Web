@@ -10,6 +10,7 @@ const entries = [
     "avatar.html",
     "complete.html",
     "style.css",
+    "app-config.js",
     "api.js",
     "script.js",
     "avatar.js",

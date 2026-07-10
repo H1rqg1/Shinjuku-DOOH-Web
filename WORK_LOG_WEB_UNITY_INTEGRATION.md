@@ -112,3 +112,25 @@
   npm and the pnpm install path stopped on build-script approval; the repository
   now avoids committing pnpm lock/workspace files so Cloudflare can install with
   npm from `package.json`.
+
+## 2026-07-10 First-run Profile and API Stability Fix
+
+- Reported issue:
+  - Opening the public URL should start from profile setup.
+  - Selecting messages could still show a "missing data" warning.
+- Root cause:
+  - `script.js` calls `syncToServer()` immediately when `editMode` is set.
+  - `syncToServer()` required both `profile` and `avatar`.
+  - If a user saved profile data before creating avatar data, selected messages
+    existed but `avatar` was missing, so the generic missing-data warning was
+    returned.
+- Fix:
+  - Added `app-config.js` as the shared API address configuration source.
+  - Updated `api.js` to use the shared config and keep the existing
+    `?apiBaseUrl=...` / localStorage override behavior.
+  - Updated `syncToServer()` to create a default avatar when profile data exists
+    but avatar data does not.
+  - Updated `index.html` to show `IPUT×DOOH project`, then route to
+    `profile.html`.
+  - Added intro title styles to `style.css`.
+  - Added `app-config.js` to the static build output list.
