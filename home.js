@@ -117,18 +117,48 @@ function renderEncounterProfiles(profiles) {
     });
 }
 
-async function loadEncounterProfiles() {
-    const localProfile = getLocalExchangeProfile();
-    let profiles = [];
+function renderEncounterError(message) {
+    const list = document.getElementById("encounterProfiles");
 
-    if (typeof fetchRecentProfiles === "function") {
-        profiles = await fetchRecentProfiles();
+    if (!list) {
+        return;
     }
 
-    const currentUserId = localStorage.getItem("user_id");
-    const filteredProfiles = profiles.filter(profile => profile.user_id !== currentUserId);
+    const error = document.createElement("p");
+    error.className = "encounter-empty";
+    error.textContent = message;
+    list.appendChild(error);
+}
 
-    renderEncounterProfiles(filteredProfiles.length ? filteredProfiles : (localProfile ? [localProfile] : []));
+async function loadEncounterProfiles() {
+    const localProfile = getLocalExchangeProfile();
+    const refreshButton = document.getElementById("refreshProfiles");
+
+    if (refreshButton?.disabled) {
+        return;
+    }
+
+    if (refreshButton) {
+        refreshButton.disabled = true;
+    }
+
+    try {
+        const profiles = typeof fetchRecentProfiles === "function"
+            ? await fetchRecentProfiles()
+            : [];
+        const currentUserId = localStorage.getItem("user_id");
+        const filteredProfiles = profiles.filter(profile => profile.user_id !== currentUserId);
+
+        renderEncounterProfiles(filteredProfiles.length ? filteredProfiles : (localProfile ? [localProfile] : []));
+    } catch (err) {
+        console.warn("最新プロフィールを取得できませんでした。", err.message);
+        renderEncounterProfiles(localProfile ? [localProfile] : []);
+        renderEncounterError("プロフィールを取得できません。更新ボタンで再試行できます。");
+    } finally {
+        if (refreshButton) {
+            refreshButton.disabled = false;
+        }
+    }
 }
 
 function initHomeWidgets() {

@@ -213,3 +213,52 @@
     fades out.
 - Adjusted the saved-account login avatar preview so the top of the head is not
   clipped.
+
+## 2026-07-13 Web API Separation and Cloud Migration Preparation
+
+- Reviewed the full API separation instruction document before changing code.
+- Confirmed the project is plain HTML/CSS/JavaScript, built into `public/` and
+  deployed as Cloudflare Workers Static Assets.
+- Confirmed the worktree was clean on `main` before the task.
+- Added `api-client.js` to centralize:
+  - API Base URL resolution and endpoint URL generation.
+  - Removal of accidental `/encounters`, `/stats`, and other known endpoint
+    suffixes from a configured Base URL.
+  - HTTP requests, an 8-second default timeout, no-store caching, HTTP status
+    handling, JSON parsing, and normalized errors.
+- Kept `api.js` as the Web-domain layer for profile synchronization and API
+  response compatibility.
+  - `GET /encounters` accepts both `{ "encounters": [...] }` and direct arrays.
+  - `target_id: null`, empty arrays, and extra response fields remain valid.
+  - Missing `encounters` and invalid `/stats` fields are explicit errors.
+- Added build-time `DOOH_API_BASE_URL` and optional `DOOH_API_TIMEOUT_MS`.
+  - Local pages use `http://127.0.0.1:8000`.
+  - Public builds do not fall back to a local API when the production URL is
+    unconfigured.
+  - Non-local production API URLs must use HTTPS.
+- Added `.env.example` and ignored personal `.env` variants.
+- Added a retry-safe recent-profile error state while preserving the existing
+  profile exchange layout and local profile fallback.
+- Did not change Unity, BLE scanner code, FastAPI endpoints, database structure,
+  authentication, page design, copy, animation, images, or fonts.
+- Production API Base URL remains unconfirmed and must be provided later to both
+  the Cloudflare build and Unity production configuration.
+- CORS/HTTPS audit:
+  - The browser API client sends no credentials and requests dynamic data with
+    `cache: no-store`.
+  - The existing FastAPI wildcard CORS plus credential setting was documented
+    for API-side review and was not changed in this Web separation task.
+  - Production connectivity could not be claimed because no confirmed HTTPS API
+    URL exists yet.
+- Verification:
+  - JavaScript syntax checks and `git diff --check` passed.
+  - API client tests covered URL normalization, `/encounters` object/direct-array
+    compatibility, null values, extra fields, malformed responses, HTTP errors,
+    network errors, and timeouts.
+  - Builds passed with an empty production setting and an HTTPS production-like
+    setting; neither generated a local API URL in `public/app-config.js`.
+  - A short-lived FastAPI run returned the existing `/encounters` and `/stats`
+    response shapes and served `home.html` plus `api-client.js` with HTTP 200.
+  - Browser checks confirmed API-backed message options, three-message selection
+    and avatar navigation, API-unconfigured fallback behavior, and no horizontal
+    overflow at 390 px or 1440 px widths.

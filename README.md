@@ -1,62 +1,152 @@
 # Shinjuku-DOOH-Web
 
-Web application and FastAPI bridge for the Shinjuku DOOH Unity project.
+Shinjuku DOOH Unityプロジェクトで使用する、静的WebアプリケーションとFastAPIブリッジです。
 
-## Run the bridge
+## プロジェクト構成
+
+- 画面: フレームワークを使わないHTML/CSS/JavaScript
+- Web向けAPI処理: `api.js`
+- HTTP通信、URL生成、タイムアウト、JSON/HTTPエラー処理: `api-client.js`
+- 環境設定: `app-config.js`
+- ローカルAPI: `server/app.py` (FastAPI)
+- 静的ビルド: `scripts/build-static.js`
+- 公開: Cloudflare Workers Static Assets (`wrangler.toml`)
+
+## API Base URL
+
+採用するビルド環境変数は次のとおりです。
+
+```text
+DOOH_API_BASE_URL
+```
+
+任意で通信タイムアウトも変更できます。
+
+```text
+DOOH_API_TIMEOUT_MS=8000
+```
+
+`DOOH_API_BASE_URL` はBase URLだけを指定してください。誤って
+`/encounters` や `/stats` まで指定した場合もクライアント側でBase URLへ
+正規化しますが、運用上は付けないでください。
+
+### Local
+
+ローカル値:
+
+```text
+http://127.0.0.1:8000
+```
+
+`127.0.0.1` または `localhost` からページを開いた場合は、この値が自動で
+選択されます。ビルド時に明示する場合はPowerShellで次を実行します。
+
+```powershell
+$env:DOOH_API_BASE_URL = "http://127.0.0.1:8000"
+npm run build
+```
+
+`.env.example` は設定名とローカル値のサンプルです。このプロジェクトは
+`.env.local` を自動読込しないため、値は実行シェルまたはデプロイサービスの
+ビルド環境変数へ設定してください。`.env` と `.env.*` は
+`.env.example` を除いてGit管理外です。
+
+### Production
+
+本番API URLはまだ確定していません。実在しないplaceholderは公開ビルドへ
+設定しないでください。
+
+本番URLが決まったら、CloudflareのGitHubビルド環境へ次を追加します。
+
+```text
+DOOH_API_BASE_URL=https://<confirmed-api-host>
+```
+
+これはWorker実行時ではなく、`npm run build` が実行されるビルド環境で必要です。
+公開ホスト上で値が未設定の場合、WebアプリはローカルAPIへ暗黙接続せず、
+端末内フォールバックと分かりやすい接続エラーを使用します。
+
+一時的な接続先の確認には、既存のクエリ指定も利用できます。
+
+```text
+https://<web-host>/?apiBaseUrl=https://<api-host>
+```
+
+正規化された値はブラウザーの `localStorage` に
+`dooh_api_base_url` として保存されます。HTTPSの公開ページから、
+ループバック以外のHTTP APIを指定することはできません。
+
+## ローカル起動
 
 ```powershell
 python -m pip install -r server\requirements.txt
 python -m uvicorn server.app:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Open:
+Webアプリ:
 
 ```text
 http://127.0.0.1:8000/home.html
 ```
 
-Unity should poll:
+Unityが使用するBase URL:
 
 ```text
-http://127.0.0.1:8000/encounters
-http://127.0.0.1:8000/stats
+http://127.0.0.1:8000
 ```
 
-## Cloudflare Pages
+既存の主要エンドポイント:
 
-Cloudflare Pages can deploy this repository as a static site without a build
-command. The static entry point is `index.html`, which redirects to
-`home.html`.
+```text
+POST   /encounter
+GET    /encounters
+GET    /stats
+DELETE /encounters
+```
 
-If the project is connected as a Cloudflare Workers service, use the included
-`wrangler.toml`. It deploys the repository as Workers Static Assets and serves
-the generated `public/` directory.
+## 検証とビルド
 
-Cloudflare Workers build settings:
+```powershell
+npm run check
+npm test
+npm run build
+```
+
+`npm run build` は公開対象だけを `public/` へ生成し、ビルド時の
+`DOOH_API_BASE_URL` を `public/app-config.js` へ注入します。生成された
+`public/` はGit管理外です。
+
+## Cloudflare公開
+
+Cloudflare WorkersのGitHub連携では次を使用します。
 
 ```text
 Build command: npm run build
 Deploy command: npm run deploy
 ```
 
-`api.js` does not use the Cloudflare Pages origin as the API base URL. By
-default it sends API requests to:
+`wrangler.toml` は `public/` をWorkers Static Assetsとして配信します。
+WorkerはAPIプロキシを実装しておらず、Webブラウザーは設定されたAPIへ直接
+接続します。APIレスポンスは `cache: no-store` で取得します。
+
+本番WebはHTTPSのため、本番APIもHTTPSが必須です。FastAPIの現在のCORSは
+`allow_origins=["*"]` と `allow_credentials=True` です。今回、既存API仕様を
+維持するため変更していません。本番移行時にはAPI側でWebの本番Originを許可し、
+Cookieを使わない現在のクライアント (`credentials: omit`) に合わせてCORS設定を
+見直してください。
+
+## Unity担当への共有
+
+本番API URLが確定したら、エンドポイントを付けないBase URLを共有します。
 
 ```text
-http://127.0.0.1:8000
+Production API Base URL: https://<confirmed-api-host>
 ```
 
-To point the static app at another bridge server, open the app once with:
+Unity側の設定先:
 
 ```text
-https://<pages-domain>/?apiBaseUrl=http://<server-host>:8000
+Assets/Settings/DOOHServerConfig_Production.asset
 ```
 
-The value is saved in `localStorage` as `dooh_api_base_url`.
-
-Opening the root URL shows the `IPUT×DOOH project` intro and then moves to
-`profile.html`.
-
-After a profile is saved, the same browser keeps the account in localStorage.
-Opening the root URL again moves to `login.html`, where the user can continue
-with the saved account.
+現時点では本番API Base URLは未確定です。

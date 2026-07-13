@@ -1,29 +1,52 @@
-// Shared API client for the DOOH web app.
-// Cloudflare Pages is a static host, so API requests must never default to
-// the current page origin. Use localStorage or ?apiBaseUrl=... for overrides.
+// DOOH web domain API. HTTP details live in api-client.js.
 
-const DEFAULT_API_BASE_URL = window.DOOH_CONFIG?.defaultApiBaseUrl || "http://127.0.0.1:8000";
-const API_BASE_URL_STORAGE_KEY = window.DOOH_CONFIG?.apiBaseUrlStorageKey || "dooh_api_base_url";
-const API_BASE_URL_QUERY_KEY = window.DOOH_CONFIG?.apiBaseUrlQueryKey || "apiBaseUrl";
-const API_BASE_URL = resolveApiBaseUrl();
+const doohApiClient = window.DOOH_API_CLIENT;
 
-function resolveApiBaseUrl() {
-    const params = new URLSearchParams(window.location.search);
-    const queryOverride = params.get(API_BASE_URL_QUERY_KEY);
+function createApiResponseError(message) {
+    return new doohApiClient.Error("INVALID_RESPONSE", message);
+}
 
-    if (queryOverride && queryOverride.trim()) {
-        const normalizedOverride = queryOverride.trim().replace(/\/+$/, "");
-        localStorage.setItem(API_BASE_URL_STORAGE_KEY, normalizedOverride);
-        return normalizedOverride;
+function normalizeMessageOptionsResponse(data) {
+    if (!data || !Array.isArray(data.messages)) {
+        throw createApiResponseError("メッセージ候補のレスポンス形式が正しくありません。");
     }
 
-    const override = localStorage.getItem(API_BASE_URL_STORAGE_KEY);
+    return data.messages;
+}
 
-    if (override && override.trim()) {
-        return override.trim().replace(/\/+$/, "");
+function normalizeRecentProfilesResponse(data) {
+    if (!data || !Array.isArray(data.profiles)) {
+        throw createApiResponseError("プロフィール一覧のレスポンス形式が正しくありません。");
     }
 
-    return DEFAULT_API_BASE_URL;
+    return data.profiles;
+}
+
+function normalizeEncountersResponse(data) {
+    if (Array.isArray(data)) {
+        return data;
+    }
+
+    if (data && Array.isArray(data.encounters)) {
+        return data.encounters;
+    }
+
+    throw createApiResponseError("encountersフィールドがないレスポンスを受信しました。");
+}
+
+function normalizeStatsResponse(data) {
+    const isValid = data
+        && !Array.isArray(data)
+        && typeof data.date_jst === "string"
+        && typeof data.time_jst === "string"
+        && typeof data.daily_detected_count === "number"
+        && typeof data.daily_encounter_count === "number";
+
+    if (!isValid) {
+        throw createApiResponseError("statsレスポンスのフィールドまたは型が正しくありません。");
+    }
+
+    return data;
 }
 
 function getUserId() {
@@ -66,36 +89,8 @@ function createDefaultAvatar() {
     };
 }
 
-async function postJson(path, payload) {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload)
-    });
-
-    let data = null;
-
-    try {
-        data = await response.json();
-    } catch (err) {
-        data = null;
-    }
-
-    if (!response.ok) {
-        const message = data && data.detail
-            ? data.detail
-            : `HTTP ${response.status}`;
-
-        throw new Error(message);
-    }
-
-    return data;
-}
-
 async function saveAvatarSetting(userId, displayName, avatarCode, costumeId) {
-    return postJson("/avatar", {
+    return doohApiClient.post("/avatar", {
         user_id: userId,
         display_name: displayName,
         avatar_code: avatarCode,
@@ -104,46 +99,39 @@ async function saveAvatarSetting(userId, displayName, avatarCode, costumeId) {
 }
 
 async function saveUserMessages(userId, selectedMessageIds) {
-    return postJson("/user-messages", {
+    return doohApiClient.post("/user-messages", {
         user_id: userId,
         selected_message_ids: selectedMessageIds
     });
 }
 
 async function saveUserSync(payload) {
-    return postJson("/sync", payload);
+    return doohApiClient.post("/sync", payload);
 }
 
 async function fetchMessageOptions() {
     try {
-        const res = await fetch(`${API_BASE_URL}/message-options`);
-
-        if (!res.ok) {
-            throw new Error("status " + res.status);
-        }
-
-        const data = await res.json();
-        return Array.isArray(data.messages) ? data.messages : [];
+        const data = await doohApiClient.get("/message-options");
+        return normalizeMessageOptionsResponse(data);
     } catch (err) {
-        console.warn("Failed to fetch message options. Local fallback will be used.", err);
+        console.warn("メッセージ候補を取得できないため、端末内の候補を使用します。", err.message);
         return null;
     }
 }
 
 async function fetchRecentProfiles() {
-    try {
-        const res = await fetch(`${API_BASE_URL}/profiles/recent`);
+    const data = await doohApiClient.get("/profiles/recent");
+    return normalizeRecentProfilesResponse(data);
+}
 
-        if (!res.ok) {
-            throw new Error("status " + res.status);
-        }
+async function fetchEncounters() {
+    const data = await doohApiClient.get("/encounters");
+    return normalizeEncountersResponse(data);
+}
 
-        const data = await res.json();
-        return Array.isArray(data.profiles) ? data.profiles : [];
-    } catch (err) {
-        console.warn("Failed to fetch recent profiles.", err);
-        return [];
-    }
+async function fetchStats() {
+    const data = await doohApiClient.get("/stats");
+    return normalizeStatsResponse(data);
 }
 
 function validateBeforeSave({ userId, outfitId, avatarCode, messageIds }) {
@@ -170,6 +158,18 @@ function validateBeforeSave({ userId, outfitId, avatarCode, messageIds }) {
     return null;
 }
 
+function getSyncFailureMessage(err) {
+    if (err?.code === "API_NOT_CONFIGURED") {
+        return "API接続先が設定されていません。端末内には保存しました。";
+    }
+
+    if (err?.code === "TIMEOUT") {
+        return "保存に失敗しました。通信がタイムアウトしました。";
+    }
+
+    return "保存に失敗しました。サーバーに接続できません。";
+}
+
 async function syncToServer() {
     const profile = JSON.parse(localStorage.getItem("profile") || "null");
     let avatar = JSON.parse(localStorage.getItem("avatar") || "null");
@@ -186,13 +186,11 @@ async function syncToServer() {
     const userId = getUserId();
     const displayName = profile.nickname || "";
     const outfitId = avatar.outfit?.id;
-
     const avatarCode = buildAvatarCode(
         outfitId,
         avatar.hat?.id,
         avatar.accessory?.id
     );
-
     const messageIds = Array.isArray(profile.messageIds) ? profile.messageIds : [];
     const validationError = validateBeforeSave({
         userId,
@@ -224,7 +222,14 @@ async function syncToServer() {
 
         return { ok: true, message: "保存しました" + count };
     } catch (err) {
-        console.error("Sync failed:", err);
-        return { ok: false, message: "保存に失敗しました。サーバーに接続できません。" };
+        console.error("Profile sync failed:", err.message);
+        return { ok: false, message: getSyncFailureMessage(err) };
     }
 }
+
+window.DOOH_WEB_API = Object.freeze({
+    fetchEncounters,
+    fetchStats,
+    normalizeEncountersResponse,
+    normalizeStatsResponse
+});
