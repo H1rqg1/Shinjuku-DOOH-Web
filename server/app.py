@@ -9,7 +9,6 @@ from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -58,6 +57,9 @@ class SyncPayload(AvatarPayload):
 class EncounterPayload(BaseModel):
     my_id: str
     target_id: Optional[str] = None
+    device_name: Optional[str] = None
+    device_address: Optional[str] = None
+    rssi: Optional[int] = None
     timestamp: Optional[str] = None
     costume_id: Optional[str] = None
     message_ids: List[str] = Field(default_factory=list)
@@ -91,6 +93,11 @@ def normalize_text(value: Any) -> Optional[str]:
 
     text = value.strip()
     return text or None
+
+
+def is_none_like_id(value: Any) -> bool:
+    normalized = normalize_text(value)
+    return normalized is None or normalized.lower() in {"none", "null"}
 
 
 def initial_state() -> Dict[str, Any]:
@@ -260,6 +267,23 @@ def parse_timestamp_to_jst(value: Any) -> Optional[datetime]:
     return parsed.astimezone(JST)
 
 
+def get_detection_identity(encounter: Dict[str, Any]) -> Optional[str]:
+    target_id = encounter.get("target_id")
+    if not is_none_like_id(target_id):
+        return f"target:{normalize_text(target_id)}"
+
+    device_address = normalize_text(encounter.get("device_address"))
+    if device_address is not None:
+        return f"address:{device_address.lower()}"
+
+    timestamp = normalize_text(encounter.get("timestamp"))
+    my_id = normalize_text(encounter.get("my_id"))
+    if timestamp is not None or my_id is not None:
+        return f"anonymous:{my_id or 'unknown'}:{timestamp or 'unknown'}"
+
+    return None
+
+
 def build_today_stats(encounters: List[Dict[str, Any]]) -> Dict[str, Any]:
     current = now_jst()
     today = current.date()
@@ -275,7 +299,7 @@ def build_today_stats(encounters: List[Dict[str, Any]]) -> Dict[str, Any]:
             continue
 
         daily_encounter_count += 1
-        identity = normalize_text(encounter.get("target_id")) or normalize_text(encounter.get("my_id"))
+        identity = get_detection_identity(encounter)
         if identity is not None:
             detected_ids.add(identity)
 
@@ -326,8 +350,16 @@ def build_recent_profiles(state: Dict[str, Any], limit: int = 10) -> List[Dict[s
 
 
 @app.get("/")
-def home() -> FileResponse:
-    return FileResponse(PROJECT_DIR / "home.html")
+def root() -> Dict[str, Any]:
+    return {
+        "message": "DOOH Encounter Server is running",
+        "endpoints": {
+            "save": "POST /encounter",
+            "list": "GET /encounters",
+            "stats": "GET /stats",
+            "reset": "DELETE /encounters",
+        },
+    }
 
 
 @app.get("/health")
@@ -383,6 +415,14 @@ def save_user_messages(payload: UserMessagesPayload) -> Dict[str, Any]:
 @app.post("/encounter")
 def save_encounter(payload: EncounterPayload) -> Dict[str, Any]:
     encounter = payload.model_dump() if hasattr(payload, "model_dump") else payload.dict()
+
+    encounter["target_id"] = (
+        None if is_none_like_id(encounter.get("target_id"))
+        else normalize_text(encounter.get("target_id"))
+    )
+    encounter["device_name"] = normalize_text(encounter.get("device_name"))
+    encounter["device_address"] = normalize_text(encounter.get("device_address"))
+
     if not encounter.get("timestamp"):
         encounter["timestamp"] = now_iso()
 
@@ -396,6 +436,7 @@ def save_encounter(payload: EncounterPayload) -> Dict[str, Any]:
     return {
         "message": "saved",
         "encounter": encounter,
+        "count": len(state["encounters"]),
         "encounter_count": len(state["encounters"]),
     }
 

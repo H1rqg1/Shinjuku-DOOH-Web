@@ -109,12 +109,18 @@ DELETE /encounters
 ```powershell
 npm run check
 npm test
+python scripts/test-server-integration.py
 npm run build
 ```
 
 `npm run build` は公開対象だけを `public/` へ生成し、ビルド時の
 `DOOH_API_BASE_URL` を `public/app-config.js` へ注入します。生成された
 `public/` はGit管理外です。
+
+`scripts/test-server-integration.py` は一時データディレクトリ上でUvicornを
+起動し、BLE互換の `POST /encounter`、Webの `POST /sync`、Unityが読む
+`GET /encounters` / `GET /stats`、CORSプリフライト、静的ページ配信をHTTPで
+確認します。既存の `server/data/` は変更しません。
 
 ## Cloudflare公開
 

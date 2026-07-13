@@ -25,14 +25,20 @@ http://127.0.0.1:8000
 
 ## Endpoints
 
+- `GET /`: returns the existing DOOH Encounter Server status and endpoint map.
 - `POST /sync`: saves web profile/avatar data and publishes a Unity encounter.
 - `POST /avatar`: saves avatar data only.
 - `POST /user-messages`: saves selected message IDs only.
 - `GET /message-options`: returns selectable messages for the web app.
 - `GET /encounters`: returns `{ "encounters": [...] }` for Unity polling.
 - `GET /stats`: returns today's count and JST time for Unity UI.
-- `POST /encounter`: keeps compatibility with the Unity-side test endpoint.
+- `POST /encounter`: keeps the existing Unity/BLE scanner contract, including
+  optional `device_name`, `device_address`, `rssi`, and `timestamp` fields.
 - `DELETE /encounters`: clears published Unity encounters.
+
+`POST /encounter` normalizes `None`/`null` target IDs in the same way as the
+Unity-side FastAPI server. Anonymous detections remain distinguishable by
+`device_address` when `GET /stats` calculates the detected-device count.
 
 ## Unity payload
 
@@ -52,3 +58,14 @@ http://127.0.0.1:8000
 
 `avatar_code` outfit IDs `1`, `2`, and `3` map to Unity catalog IDs
 `costume_fashion01`, `costume_fashion02`, and `costume_fashion03`.
+
+## Integration test
+
+After installing `server/requirements.txt`, run:
+
+```powershell
+python scripts/test-server-integration.py
+```
+
+The test starts Uvicorn on an available local port and uses a temporary data
+directory. It does not read, reset, or overwrite `server/data/`.

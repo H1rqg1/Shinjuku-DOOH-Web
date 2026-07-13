@@ -302,3 +302,25 @@
   the unused hat/accessory sections, regardless of the selected placeholder.
 - Updated avatar regression coverage for the six empty slots, saved-state
   normalization, absent asset directories, and the Unity zero-value invariant.
+
+## 2026-07-13 FastAPI Unity/BLE Compatibility Audit
+
+- Compared the Web bridge with the Unity-side FastAPI and Unity `Encounter`
+  model without changing the Unity or BLE scanner repositories.
+- Found that the Web bridge accepted but discarded existing BLE scanner fields:
+  `device_name`, `device_address`, and `rssi`.
+- Added those optional fields to the compatible `POST /encounter` payload and
+  preserved their values in `GET /encounters` output.
+- Matched existing target-ID normalization for empty, `None`, and `null` values.
+- Matched existing stats identity behavior so unnamed BLE devices are counted by
+  `device_address` instead of collapsing every detection into `my_id=dooh_pc`.
+- Restored the existing JSON status response for `GET /`; the local Web UI
+  remains available at `/home.html` and the other explicit static paths.
+- Added the existing `count` response field to `POST /encounter` while retaining
+  the bridge-specific `encounter_count` field for backward compatibility.
+- Added `scripts/test-server-integration.py`, which starts Uvicorn with temporary
+  storage and verifies root/static responses, CORS preflight, two BLE posts,
+  null normalization, stats counts, Web `/sync`, Unity `/encounters`, Web profile
+  exchange separation, and queue reset through real HTTP requests.
+- Production API Base URL remains unconfirmed. No guessed URL was added to the
+  Cloudflare build or shared with the Unity production configuration.
