@@ -391,3 +391,14 @@
   boundary, storage requirements, CORS/cache rules, rollout sequence, acceptance
   gates, rollback, and exact information needed to unblock implementation.
 - No placeholder URL or guessed Cloudflare API service was configured.
+- Re-ran `scripts/test-api-client.js`, `scripts/test-avatar.js`, and
+  `scripts/test-server-integration.py`; all passed. JavaScript syntax checks and
+  both configured and unconfigured static builds also passed.
+- Committed and pushed the migration audit as `8b51233` on `main`; confirmed the
+  GitHub remote points to the same commit.
+- Confirmed the public root returns HTTP 200, public `app-config.js` still has an
+  empty `apiBaseUrl`, and `PRODUCTION_API_MIGRATION_PLAN.md` returns HTTP 404 as
+  intended because internal documentation is not part of the static build.
+- The Cloudflare Deployments dashboard redirected to its sign-in page in the
+  available browser session, so the dashboard build-status badge could not be
+  inspected. Public delivery was verified independently over HTTPS.
