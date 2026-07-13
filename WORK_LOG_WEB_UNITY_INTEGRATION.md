@@ -262,3 +262,30 @@
   - Browser checks confirmed API-backed message options, three-message selection
     and avatar navigation, API-unconfigured fallback behavior, and no horizontal
     overflow at 390 px or 1440 px widths.
+
+## 2026-07-13 Coordinate Asset Replacement
+
+- Replaced the three tracked coordinate images with the supplied
+  `coordinate_01.png`, `coordinate_02.png`, and `coordinate_03.png` assets while
+  preserving the existing `outfit1.png` through `outfit3.png` public paths.
+  The PNGs were re-encoded with every RGBA pixel preserved to avoid a browser
+  compositor issue found in the source encoding.
+- Removed the tracked hat image and removed all hat/accessory choices from the
+  avatar page, avatar data, saved avatar state, and Web preview rendering.
+- Replaced the remaining home-menu and avatar-chat hat/accessory wording with
+  coordinate-only wording so the visible experience matches the available data.
+- Removed stale non-existent choices for outfit 4, hats 2/3, and accessories.
+- Avatar selection now contains exactly three coordinates with IDs 1 through 3,
+  preserving the existing Unity costume mapping to `costume_fashion01` through
+  `costume_fashion03`.
+- Existing saved avatar data is normalized by outfit ID. Old hat/accessory fields
+  are discarded, and an unavailable outfit falls back to coordinate 1.
+- Unity avatar codes remain 8 digits, with the unused hat/accessory sections set
+  to `0000`.
+- Browser verification initially exposed a black compositor artifact for
+  coordinate 3. Pixel-identical PNG re-encoding resolved it without cropping or
+  changing any supplied clothing artwork.
+- Added `scripts/test-avatar.js` to cover the three allowed outfit IDs, legacy
+  saved-data cleanup, missing-outfit fallback, removed UI labels/references, and
+  the final image file set. It also locks the existing 8-digit avatar code and
+  `costume_fashion01` through `costume_fashion03` Unity mappings.

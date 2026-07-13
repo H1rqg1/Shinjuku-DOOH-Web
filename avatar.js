@@ -7,9 +7,7 @@
 // -----------------------------
 
 const avatar = {
-    outfit: null,
-    hat: null,
-    accessory: null
+    outfit: null
 };
 
 // -----------------------------
@@ -19,13 +17,6 @@ const avatar = {
 const avatarData = {
 
     outfit: [
-
-        {
-            id: 0,
-            name: "なし",
-            image: ""
-        },
-
         {
             id: 1,
             name: "コーデ1",
@@ -42,70 +33,7 @@ const avatarData = {
             id: 3,
             name: "コーデ3",
             image: "image/clothes/outfit3.png"
-        },
-
-        {
-            id: 4,
-            name: "コーデ4",
-            image: "image/clothes/outfit4.png"
         }
-
-    ],
-
-    hat: [
-
-        {
-            id: 0,
-            name: "なし",
-            image: ""
-        },
-
-        {
-            id: 1,
-            name: "帽子1",
-            image: "image/hat/hat1.png"
-        },
-
-        {
-            id: 2,
-            name: "帽子2",
-            image: "image/hat/hat2.png"
-        },
-
-        {
-            id: 3,
-            name: "帽子3",
-            image: "image/hat/hat3.png"
-        }
-
-    ],
-
-    accessory: [
-
-        {
-            id: 0,
-            name: "なし",
-            image: ""
-        },
-
-        {
-            id: 1,
-            name: "メガネ",
-            image: "image/accessory/accessory1.png"
-        },
-
-        {
-            id: 2,
-            name: "ネックレス",
-            image: "image/accessory/accessory2.png"
-        },
-
-        {
-            id: 3,
-            name: "リボン",
-            image: "image/accessory/accessory3.png"
-        }
-
     ]
 
 };
@@ -117,8 +45,6 @@ const avatarData = {
 function initAvatar() {
 
     avatar.outfit = avatarData.outfit[0];
-    avatar.hat = avatarData.hat[0];
-    avatar.accessory = avatarData.accessory[0];
 
     // 編集モード（ホームから来た場合）は保存済みの内容を復元する
     if (sessionStorage.getItem("editMode")) {
@@ -126,6 +52,8 @@ function initAvatar() {
         loadAvatar();
 
     }
+
+    saveAvatar();
 
     updatePreview();
 
@@ -137,25 +65,19 @@ function initAvatar() {
 
 function openModal(type) {
 
+    if (type !== "outfit") {
+
+        return;
+
+    }
+
     const modal = document.getElementById("modal");
     const list = document.getElementById("modalList");
     const title = document.getElementById("modalTitle");
 
     list.innerHTML = "";
 
-    if(type==="outfit"){
-
-        title.textContent="コーデを選択";
-
-    }else if(type==="hat"){
-
-        title.textContent="帽子を選択";
-
-    }else{
-
-        title.textContent="アクセサリーを選択";
-
-    }
+    title.textContent="コーデを選択";
 
     avatarData[type].forEach(item=>{
 
@@ -263,10 +185,10 @@ function loadAvatar(){
     }
 
     const save=JSON.parse(json);
+    const savedOutfitId=Number(save?.outfit?.id);
 
-    avatar.outfit=save.outfit;
-    avatar.hat=save.hat;
-    avatar.accessory=save.accessory;
+    avatar.outfit=avatarData.outfit.find(item=>item.id===savedOutfitId)
+        || avatarData.outfit[0];
 
 }
 
@@ -294,8 +216,6 @@ function updatePreview(){
     preview.appendChild(base);
 
     drawLayer(preview,avatar.outfit);
-    drawLayer(preview,avatar.accessory);
-    drawLayer(preview,avatar.hat);
 
 }
 
@@ -343,24 +263,10 @@ function drawLayer(parent,data){
 function updateSelectedText() {
 
     const outfit = document.getElementById("selectedOutfit");
-    const hat = document.getElementById("selectedHat");
-    const accessory = document.getElementById("selectedAccessory");
 
     if (outfit) {
         outfit.textContent = avatar.outfit
             ? avatar.outfit.name
-            : "なし";
-    }
-
-    if (hat) {
-        hat.textContent = avatar.hat
-            ? avatar.hat.name
-            : "なし";
-    }
-
-    if (accessory) {
-        accessory.textContent = avatar.accessory
-            ? avatar.accessory.name
             : "なし";
     }
 
@@ -373,8 +279,6 @@ function updateSelectedText() {
 function resetAvatar() {
 
     avatar.outfit = avatarData.outfit[0];
-    avatar.hat = avatarData.hat[0];
-    avatar.accessory = avatarData.accessory[0];
 
     saveAvatar();
 
@@ -545,20 +449,6 @@ function randomAvatar() {
         avatarData.outfit[
             Math.floor(
                 Math.random() * avatarData.outfit.length
-            )
-        ];
-
-    avatar.hat =
-        avatarData.hat[
-            Math.floor(
-                Math.random() * avatarData.hat.length
-            )
-        ];
-
-    avatar.accessory =
-        avatarData.accessory[
-            Math.floor(
-                Math.random() * avatarData.accessory.length
             )
         ];
 

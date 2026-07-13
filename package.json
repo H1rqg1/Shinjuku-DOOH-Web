@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "build": "node scripts/build-static.js",
-    "check": "node --check app-config.js && node --check api-client.js && node --check api.js && node --check account.js && node --check script.js && node --check avatar.js && node --check home.js && node --check scripts/build-static.js && node --check scripts/test-api-client.js",
-    "test": "node scripts/test-api-client.js",
+    "check": "node --check app-config.js && node --check api-client.js && node --check api.js && node --check account.js && node --check script.js && node --check avatar.js && node --check home.js && node --check scripts/build-static.js && node --check scripts/test-api-client.js && node --check scripts/test-avatar.js",
+    "test": "node scripts/test-api-client.js && node scripts/test-avatar.js",
     "predeploy": "npm run build",
     "deploy": "wrangler deploy"
   },

@@ -485,14 +485,6 @@ button {
     bottom: 35px; /* 服は少し上 */
 }
 
-.hat {
-    top: 10px; /* 帽子は上 */
-}
-
-.accessory {
-    top: 45px; /* アクセは中間 */
-}
-
 /* =========================
    ボタンエリア
 ========================= */
@@ -590,9 +582,6 @@ button {
 
 .option-button:hover {
     background: #f2f6ff;
-}
-.hat {
-    top: 10px;
 }
 .complete-info {
     text-align: center;
@@ -695,6 +684,7 @@ button {
     pointer-events:none;
 
 }
+
 /* =========================
    画像読み込み失敗時のプレースホルダー
 ========================= */

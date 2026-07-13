@@ -83,9 +83,7 @@ function buildCostumeId(outfitId) {
 
 function createDefaultAvatar() {
     return {
-        outfit: { id: 0, name: "none", image: "" },
-        hat: { id: 0, name: "none", image: "" },
-        accessory: { id: 0, name: "none", image: "" }
+        outfit: { id: 1, name: "コーデ1", image: "image/clothes/outfit1.png" }
     };
 }
 
@@ -188,8 +186,8 @@ async function syncToServer() {
     const outfitId = avatar.outfit?.id;
     const avatarCode = buildAvatarCode(
         outfitId,
-        avatar.hat?.id,
-        avatar.accessory?.id
+        0,
+        0
     );
     const messageIds = Array.isArray(profile.messageIds) ? profile.messageIds : [];
     const validationError = validateBeforeSave({
