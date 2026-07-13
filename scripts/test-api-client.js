@@ -23,6 +23,7 @@ function createStorage() {
 
 function createContext() {
     const localStorage = createStorage();
+    let uuidCounter = 0;
     const window = {
         location: {
             protocol: "https:",
@@ -38,7 +39,8 @@ function createContext() {
         },
         crypto: {
             randomUUID() {
-                return "test-user";
+                uuidCounter += 1;
+                return `test-uuid-${uuidCounter}`;
             }
         }
     };
@@ -218,6 +220,7 @@ async function run() {
 
     const syncContext = createContext();
     let syncPostCount = 0;
+    const completedSyncIds = [];
     let releaseSyncPost;
     const syncPostGate = new Promise(resolve => {
         releaseSyncPost = resolve;
@@ -228,6 +231,8 @@ async function run() {
         async post(path, payload) {
             assert.strictEqual(path, "/sync");
             assert.strictEqual(payload.avatar_code, "00020000");
+            assert.strictEqual(typeof payload.sync_id, "string");
+            completedSyncIds.push(payload.sync_id);
             syncPostCount += 1;
             await syncPostGate;
             return { encounter_count: syncPostCount };
@@ -255,10 +260,52 @@ async function run() {
     assert.strictEqual(syncResults[0].ok, true);
     assert.strictEqual(syncResults[1].ok, true);
     assert.strictEqual(syncPostCount, 1);
+    assert.strictEqual(syncContext.localStorage.getItem("dooh_pending_sync"), null);
 
     const laterSync = await vm.runInContext("syncToServer()", syncContext);
     assert.strictEqual(laterSync.ok, true);
     assert.strictEqual(syncPostCount, 2);
+    assert.notStrictEqual(completedSyncIds[0], completedSyncIds[1]);
+
+    const retryContext = createContext();
+    const retrySyncIds = [];
+    let failNextSync = true;
+
+    retryContext.window.DOOH_API_CLIENT = {
+        Error: class RetryApiError extends Error {},
+        async post(_path, payload) {
+            retrySyncIds.push(payload.sync_id);
+
+            if (failNextSync) {
+                failNextSync = false;
+                const error = new Error("response lost");
+                error.code = "NETWORK_ERROR";
+                throw error;
+            }
+
+            return { encounter_count: 1 };
+        }
+    };
+    retryContext.localStorage.setItem("profile", JSON.stringify({
+        nickname: "Retry User",
+        messageIds: ["talk_hello"],
+        interestIds: [],
+        interests: []
+    }));
+    retryContext.localStorage.setItem("avatar", JSON.stringify({
+        outfit: { id: 1, name: "outfit", image: "image/clothes/outfit1.png" }
+    }));
+    loadScript(retryContext, "api.js");
+
+    const failedSync = await vm.runInContext("syncToServer()", retryContext);
+    assert.strictEqual(failedSync.ok, false);
+    assert.ok(retryContext.localStorage.getItem("dooh_pending_sync"));
+
+    const retriedSync = await vm.runInContext("syncToServer()", retryContext);
+    assert.strictEqual(retriedSync.ok, true);
+    assert.strictEqual(retrySyncIds.length, 2);
+    assert.strictEqual(retrySyncIds[0], retrySyncIds[1]);
+    assert.strictEqual(retryContext.localStorage.getItem("dooh_pending_sync"), null);
 
     console.log("API client tests passed.");
 }

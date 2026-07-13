@@ -345,3 +345,25 @@
 - Extended `scripts/test-api-client.js` with response-body timeout, invalid
   timeout, HTML 502 response, concurrent-sync coalescing, and post-completion
   sync-reset coverage.
+
+## 2026-07-13 Retry Idempotency and Atomic State Writes
+
+- Closed the remaining duplicate-publication case where FastAPI saved a Web
+  profile but its HTTP response was lost before the browser received it.
+- Web sync now stores a pending `sync_id` with a fingerprint of the outgoing
+  payload. A retry of unchanged data reuses that ID; changed data receives a new
+  ID. The pending record is removed only after an HTTP-success response.
+- Added optional `sync_id` support to FastAPI without changing older Web, Unity,
+  or BLE requests that do not send the field.
+- FastAPI stores the first successful response for up to 1,000 recent sync IDs.
+  Identical retries return that response without appending another Unity
+  encounter; an ID reused with different data returns HTTP `409`.
+- `DELETE /encounters` clears retry history with the queue, allowing an
+  intentional reset followed by republishing the same profile.
+- Server state now writes through a flushed temporary file and `os.replace`, so
+  an interrupted write cannot leave a partially written primary JSON file.
+- JS tests cover success cleanup, new IDs after success, response-loss retention,
+  and same-ID retry. HTTP integration tests cover duplicate suppression,
+  conflicting-payload rejection, retry-state persistence, reset cleanup,
+  republishing after reset, legacy requests without `sync_id`, and temporary-file
+  cleanup.

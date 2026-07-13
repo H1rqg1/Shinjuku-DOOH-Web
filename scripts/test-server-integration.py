@@ -8,6 +8,7 @@ from threading import Thread
 from time import monotonic, sleep
 from typing import Any, Dict, Iterator, Optional, Tuple
 import json
+import os
 import socket
 import sys
 
@@ -159,7 +160,8 @@ def run() -> None:
         assert stats["daily_detected_count"] == 2
         assert stats["daily_encounter_count"] == 2
 
-        sync = assert_status(request_json(port, "POST", "/sync", {
+        sync_payload = {
+            "sync_id": "sync-web-user-1",
             "user_id": "web-user-1",
             "display_name": "Web User",
             "avatar_code": "00020000",
@@ -167,11 +169,27 @@ def run() -> None:
             "selected_message_ids": ["talk_hello", "status_break"],
             "interest_ids": ["music"],
             "interests": ["Music"],
-        }))
+        }
+        sync = assert_status(request_json(port, "POST", "/sync", sync_payload))
         assert sync["encounter_count"] == 3
         assert sync["encounter"]["costume_id"] == "costume_fashion02"
         assert sync["encounter"]["message_ids"] == ["talk_hello", "status_break"]
         assert "interests" not in sync["encounter"]
+
+        duplicate_sync = assert_status(request_json(port, "POST", "/sync", sync_payload))
+        assert duplicate_sync["encounter_count"] == 3
+        assert duplicate_sync["encounter"]["timestamp"] == sync["encounter"]["timestamp"]
+
+        conflicting_payload = dict(sync_payload)
+        conflicting_payload["display_name"] = "Different User"
+        conflict_status, _conflict_headers, conflict = request_json(
+            port,
+            "POST",
+            "/sync",
+            conflicting_payload,
+        )
+        assert conflict_status == 409
+        assert conflict["detail"] == "sync_id was already used with different data"
 
         encounters = assert_status(request_json(port, "GET", "/encounters"))["encounters"]
         assert len(encounters) == 3
@@ -182,9 +200,31 @@ def run() -> None:
         web_profile = next(profile for profile in profiles if profile["user_id"] == "web-user-1")
         assert web_profile["interests"] == ["Music"]
 
+        legacy_sync_payload = dict(sync_payload)
+        legacy_sync_payload.pop("sync_id")
+        legacy_sync_payload["user_id"] = "legacy-web-user"
+        legacy_sync_payload["display_name"] = "Legacy Web User"
+        legacy_sync = assert_status(request_json(port, "POST", "/sync", legacy_sync_payload))
+        assert legacy_sync["encounter_count"] == 4
+
         reset = assert_status(request_json(port, "DELETE", "/encounters"))
         assert reset["encounters"] == []
         assert_status(request_json(port, "GET", "/encounters"))["encounters"] == []
+
+        reset_state = json.loads(app_module.DATA_PATH.read_text(encoding="utf-8"))
+        assert reset_state["sync_requests"] == {}
+
+        republished_sync = assert_status(request_json(port, "POST", "/sync", sync_payload))
+        assert republished_sync["encounter_count"] == 1
+        republished_encounters = assert_status(
+            request_json(port, "GET", "/encounters")
+        )["encounters"]
+        assert len(republished_encounters) == 1
+
+        temp_path = app_module.DATA_PATH.with_name(
+            f".{app_module.DATA_PATH.name}.{os.getpid()}.tmp"
+        )
+        assert not temp_path.exists()
 
     print("FastAPI Web/Unity integration tests passed.")
 

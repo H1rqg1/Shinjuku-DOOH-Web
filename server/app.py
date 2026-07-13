@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from threading import Lock
 from typing import Any, Dict, List, Optional
 import json
+import os
 from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException
@@ -24,6 +26,7 @@ except Exception:
     JST = timezone(timedelta(hours=9), name="Asia/Tokyo")
 
 data_lock = Lock()
+MAX_SYNC_REQUESTS = 1000
 
 app = FastAPI(title="Shinjuku DOOH Web Bridge")
 
@@ -49,6 +52,7 @@ class UserMessagesPayload(BaseModel):
 
 
 class SyncPayload(AvatarPayload):
+    sync_id: Optional[str] = None
     selected_message_ids: List[str] = Field(default_factory=list)
     interest_ids: List[str] = Field(default_factory=list)
     interests: List[str] = Field(default_factory=list)
@@ -105,6 +109,7 @@ def initial_state() -> Dict[str, Any]:
         "users": {},
         "encounters": [],
         "messages": DEFAULT_MESSAGES,
+        "sync_requests": {},
     }
 
 
@@ -129,6 +134,7 @@ def read_state() -> Dict[str, Any]:
     state.setdefault("users", {})
     state.setdefault("encounters", [])
     state.setdefault("messages", DEFAULT_MESSAGES)
+    state.setdefault("sync_requests", {})
 
     if not isinstance(state["users"], dict):
         state["users"] = {}
@@ -136,14 +142,51 @@ def read_state() -> Dict[str, Any]:
         state["encounters"] = []
     if not isinstance(state["messages"], list):
         state["messages"] = DEFAULT_MESSAGES
+    if not isinstance(state["sync_requests"], dict):
+        state["sync_requests"] = {}
 
     return state
 
 
 def write_state(state: Dict[str, Any]) -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    with DATA_PATH.open("w", encoding="utf-8") as file:
-        json.dump(state, file, ensure_ascii=False, indent=2)
+    temp_path = DATA_PATH.with_name(f".{DATA_PATH.name}.{os.getpid()}.tmp")
+
+    try:
+        with temp_path.open("w", encoding="utf-8") as file:
+            json.dump(state, file, ensure_ascii=False, indent=2)
+            file.flush()
+            os.fsync(file.fileno())
+
+        os.replace(temp_path, DATA_PATH)
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
+
+
+def model_to_dict(model: BaseModel) -> Dict[str, Any]:
+    return model.model_dump() if hasattr(model, "model_dump") else model.dict()
+
+
+def normalize_sync_id(value: Any) -> Optional[str]:
+    sync_id = normalize_text(value)
+    if sync_id is None:
+        return None
+    if len(sync_id) > 128:
+        raise HTTPException(status_code=400, detail="sync_id must be 128 characters or fewer")
+    return sync_id
+
+
+def build_sync_fingerprint(payload: SyncPayload) -> str:
+    values = model_to_dict(payload)
+    values.pop("sync_id", None)
+    return json.dumps(values, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def trim_sync_requests(sync_requests: Dict[str, Any]) -> None:
+    while len(sync_requests) > MAX_SYNC_REQUESTS:
+        oldest_sync_id = next(iter(sync_requests))
+        del sync_requests[oldest_sync_id]
 
 
 def validate_message_ids(message_ids: List[str]) -> List[str]:
@@ -373,8 +416,29 @@ def health() -> Dict[str, Any]:
 
 @app.post("/sync")
 def sync_user(payload: SyncPayload) -> Dict[str, Any]:
+    sync_id = normalize_sync_id(payload.sync_id)
+    fingerprint = build_sync_fingerprint(payload) if sync_id is not None else None
+
     with data_lock:
         state = read_state()
+        sync_requests = state["sync_requests"]
+
+        if sync_id is not None:
+            saved_request = sync_requests.get(sync_id)
+
+            if isinstance(saved_request, dict):
+                if saved_request.get("fingerprint") != fingerprint:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="sync_id was already used with different data"
+                    )
+
+                saved_response = saved_request.get("response")
+                if isinstance(saved_response, dict):
+                    return saved_response
+
+                del sync_requests[sync_id]
+
         user = update_avatar(state, payload)
         user = update_messages(state, UserMessagesPayload(
             user_id=payload.user_id,
@@ -382,14 +446,23 @@ def sync_user(payload: SyncPayload) -> Dict[str, Any]:
         ))
         user = update_profile_exchange_fields(state, payload)
         encounter = append_encounter(state, user)
+        response = {
+            "message": "saved",
+            "user": deepcopy(user),
+            "encounter": deepcopy(encounter),
+            "encounter_count": len(state["encounters"]),
+        }
+
+        if sync_id is not None:
+            sync_requests[sync_id] = {
+                "fingerprint": fingerprint,
+                "response": response,
+            }
+            trim_sync_requests(sync_requests)
+
         write_state(state)
 
-    return {
-        "message": "saved",
-        "user": user,
-        "encounter": encounter,
-        "encounter_count": len(state["encounters"]),
-    }
+    return response
 
 
 @app.post("/avatar")
@@ -414,7 +487,7 @@ def save_user_messages(payload: UserMessagesPayload) -> Dict[str, Any]:
 
 @app.post("/encounter")
 def save_encounter(payload: EncounterPayload) -> Dict[str, Any]:
-    encounter = payload.model_dump() if hasattr(payload, "model_dump") else payload.dict()
+    encounter = model_to_dict(payload)
 
     encounter["target_id"] = (
         None if is_none_like_id(encounter.get("target_id"))
@@ -478,6 +551,7 @@ def reset_encounters() -> Dict[str, Any]:
     with data_lock:
         state = read_state()
         state["encounters"] = []
+        state["sync_requests"] = {}
         write_state(state)
 
     return {"message": "reset", "encounters": []}

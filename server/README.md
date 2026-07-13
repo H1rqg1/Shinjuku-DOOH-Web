@@ -27,6 +27,7 @@ http://127.0.0.1:8000
 
 - `GET /`: returns the existing DOOH Encounter Server status and endpoint map.
 - `POST /sync`: saves web profile/avatar data and publishes a Unity encounter.
+  An optional `sync_id` makes retries idempotent without affecting older clients.
 - `POST /avatar`: saves avatar data only.
 - `POST /user-messages`: saves selected message IDs only.
 - `GET /message-options`: returns selectable messages for the web app.
@@ -35,6 +36,11 @@ http://127.0.0.1:8000
 - `POST /encounter`: keeps the existing Unity/BLE scanner contract, including
   optional `device_name`, `device_address`, `rssi`, and `timestamp` fields.
 - `DELETE /encounters`: clears published Unity encounters.
+
+When a `sync_id` is repeated with the same payload, the server returns the saved
+response without appending another encounter. Reusing that ID with different
+data returns HTTP `409`. `DELETE /encounters` also clears these internal retry
+records so a profile can be published again after an intentional queue reset.
 
 `POST /encounter` normalizes `None`/`null` target IDs in the same way as the
 Unity-side FastAPI server. Anonymous detections remain distinguishable by
@@ -69,3 +75,6 @@ python scripts/test-server-integration.py
 
 The test starts Uvicorn on an available local port and uses a temporary data
 directory. It does not read, reset, or overwrite `server/data/`.
+
+Runtime state is written to a temporary file, flushed, and atomically replaced.
+An interrupted write therefore leaves the last complete state file available.

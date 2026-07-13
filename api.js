@@ -63,6 +63,57 @@ function getUserId() {
     return userId;
 }
 
+const PENDING_SYNC_STORAGE_KEY = "dooh_pending_sync";
+
+function createSyncId() {
+    return (window.crypto && window.crypto.randomUUID)
+        ? window.crypto.randomUUID()
+        : "sync_" + Date.now() + "_" + Math.random().toString(16).slice(2);
+}
+
+function getOrCreateSyncId(payload) {
+    const fingerprint = JSON.stringify(payload);
+    let pending = null;
+
+    try {
+        pending = JSON.parse(localStorage.getItem(PENDING_SYNC_STORAGE_KEY) || "null");
+    } catch (err) {
+        console.warn("保留中の同期IDを読み込めないため再作成します。", err.message);
+    }
+
+    if (pending
+        && typeof pending.id === "string"
+        && pending.id
+        && pending.fingerprint === fingerprint) {
+        return pending.id;
+    }
+
+    const syncId = createSyncId();
+
+    try {
+        localStorage.setItem(PENDING_SYNC_STORAGE_KEY, JSON.stringify({
+            id: syncId,
+            fingerprint
+        }));
+    } catch (err) {
+        console.warn("同期IDを端末へ保存できませんでした。", err.message);
+    }
+
+    return syncId;
+}
+
+function clearPendingSyncId(syncId) {
+    try {
+        const pending = JSON.parse(localStorage.getItem(PENDING_SYNC_STORAGE_KEY) || "null");
+
+        if (pending?.id === syncId) {
+            localStorage.removeItem(PENDING_SYNC_STORAGE_KEY);
+        }
+    } catch (err) {
+        console.warn("完了した同期IDを削除できませんでした。", err.message);
+    }
+}
+
 function buildAvatarCode(outfitId, hatId, accessoryId) {
     const c = String(outfitId ?? 0).padStart(4, "0");
     const h = String(hatId ?? 0).padStart(2, "0");
@@ -223,9 +274,12 @@ async function performSyncToServer() {
         interest_ids: Array.isArray(profile.interestIds) ? profile.interestIds : [],
         interests: Array.isArray(profile.interests) ? profile.interests : []
     };
+    const syncId = getOrCreateSyncId(payload);
+    payload.sync_id = syncId;
 
     try {
         const data = await saveUserSync(payload);
+        clearPendingSyncId(syncId);
         const count = data && typeof data.encounter_count === "number"
             ? ` (${data.encounter_count})`
             : "";
