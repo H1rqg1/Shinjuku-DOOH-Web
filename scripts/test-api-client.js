@@ -128,6 +128,15 @@ async function run() {
         err => err.code === "HTTP_ERROR" && err.status === 503 && err.url.endsWith("/stats")
     );
 
+    const htmlHttpErrorClient = api.createApiClient({
+        baseUrl: "https://api.example.test",
+        fetchImpl: async () => response(502, "<html>Bad Gateway</html>")
+    });
+    await assert.rejects(
+        htmlHttpErrorClient.get("/stats"),
+        err => err.code === "HTTP_ERROR" && err.status === 502 && err.message === "HTTP 502"
+    );
+
     const networkErrorClient = api.createApiClient({
         baseUrl: "https://api.example.test",
         fetchImpl: async () => {
@@ -148,6 +157,35 @@ async function run() {
         })
     });
     await assert.rejects(timeoutClient.get("/stats"), err => err.code === "TIMEOUT");
+
+    const bodyTimeoutClient = api.createApiClient({
+        baseUrl: "https://api.example.test",
+        timeoutMs: 5,
+        fetchImpl: async (_url, options) => ({
+            ok: true,
+            status: 200,
+            text() {
+                return new Promise((_resolve, reject) => {
+                    options.signal.addEventListener("abort", () => {
+                        const error = new Error("body read aborted");
+                        error.name = "AbortError";
+                        reject(error);
+                    });
+                });
+            }
+        })
+    });
+    await assert.rejects(bodyTimeoutClient.get("/stats"), err => err.code === "TIMEOUT");
+
+    const invalidTimeoutClient = api.createApiClient({
+        baseUrl: "https://api.example.test",
+        timeoutMs: 0,
+        fetchImpl: async () => response(200, "{}")
+    });
+    await assert.rejects(
+        invalidTimeoutClient.get("/stats"),
+        err => err.code === "INVALID_TIMEOUT"
+    );
 
     context.window.localStorage.setItem("dooh_api_base_url", "invalid-url");
     const recoveredClient = api.createApiClient();
@@ -177,6 +215,50 @@ async function run() {
         () => webApi.normalizeStatsResponse({ ...stats, daily_encounter_count: "30" }),
         err => err.code === "INVALID_RESPONSE"
     );
+
+    const syncContext = createContext();
+    let syncPostCount = 0;
+    let releaseSyncPost;
+    const syncPostGate = new Promise(resolve => {
+        releaseSyncPost = resolve;
+    });
+
+    syncContext.window.DOOH_API_CLIENT = {
+        Error: class TestApiError extends Error {},
+        async post(path, payload) {
+            assert.strictEqual(path, "/sync");
+            assert.strictEqual(payload.avatar_code, "00020000");
+            syncPostCount += 1;
+            await syncPostGate;
+            return { encounter_count: syncPostCount };
+        }
+    };
+    syncContext.localStorage.setItem("profile", JSON.stringify({
+        nickname: "Test User",
+        messageIds: ["talk_hello"],
+        interestIds: [],
+        interests: []
+    }));
+    syncContext.localStorage.setItem("avatar", JSON.stringify({
+        outfit: { id: 2, name: "outfit", image: "image/clothes/outfit2.png" },
+        hat: { id: 2, name: "none", image: "" },
+        accessory: { id: 2, name: "none", image: "" }
+    }));
+    loadScript(syncContext, "api.js");
+
+    const firstSync = vm.runInContext("syncToServer()", syncContext);
+    const concurrentSync = vm.runInContext("syncToServer()", syncContext);
+    assert.strictEqual(syncPostCount, 1);
+
+    releaseSyncPost();
+    const syncResults = await Promise.all([firstSync, concurrentSync]);
+    assert.strictEqual(syncResults[0].ok, true);
+    assert.strictEqual(syncResults[1].ok, true);
+    assert.strictEqual(syncPostCount, 1);
+
+    const laterSync = await vm.runInContext("syncToServer()", syncContext);
+    assert.strictEqual(laterSync.ok, true);
+    assert.strictEqual(syncPostCount, 2);
 
     console.log("API client tests passed.");
 }

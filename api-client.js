@@ -175,6 +175,14 @@
             const method = String(requestOptions.method || "GET").toUpperCase();
             const controller = new AbortController();
             const effectiveTimeout = Number(requestOptions.timeoutMs ?? timeoutMs);
+
+            if (!Number.isFinite(effectiveTimeout) || effectiveTimeout <= 0) {
+                throw new DoohApiError(
+                    "INVALID_TIMEOUT",
+                    "API通信のタイムアウト設定が正しくありません。"
+                );
+            }
+
             const timeoutId = setTimeout(() => controller.abort(), effectiveTimeout);
             const headers = { ...(requestOptions.headers || {}) };
             let body;
@@ -186,70 +194,88 @@
                     : JSON.stringify(requestOptions.body);
             }
 
-            let response;
-
             try {
-                response = await fetchImpl(url, {
-                    method,
-                    headers,
-                    body,
-                    signal: controller.signal,
-                    cache: "no-store",
-                    credentials: "omit"
-                });
-            } catch (err) {
-                const timedOut = controller.signal.aborted || err?.name === "AbortError";
-                const code = timedOut ? "TIMEOUT" : "NETWORK_ERROR";
-                const message = timedOut
-                    ? "API通信がタイムアウトしました。"
-                    : "APIサーバーへ接続できませんでした。";
+                let response;
 
-                console.error(`[DOOH API] ${method} ${url} -> ${timedOut ? "timeout" : "network error"}`);
-                throw new DoohApiError(code, message, { url, cause: err });
-            } finally {
-                clearTimeout(timeoutId);
-            }
-
-            let responseText;
-
-            try {
-                responseText = await response.text();
-            } catch (err) {
-                console.error(`[DOOH API] ${method} ${url} -> ${response.status} response read error`);
-                throw new DoohApiError("NETWORK_ERROR", "APIレスポンスを読み取れませんでした。", {
-                    status: response.status,
-                    url,
-                    cause: err
-                });
-            }
-            let data = null;
-
-            if (responseText) {
                 try {
-                    data = JSON.parse(responseText);
+                    response = await fetchImpl(url, {
+                        method,
+                        headers,
+                        body,
+                        signal: controller.signal,
+                        cache: "no-store",
+                        credentials: "omit"
+                    });
                 } catch (err) {
-                    console.error(`[DOOH API] ${method} ${url} -> ${response.status} invalid JSON`);
-                    throw new DoohApiError("INVALID_JSON", "APIから不正なJSONを受信しました。", {
+                    const timedOut = controller.signal.aborted || err?.name === "AbortError";
+                    const code = timedOut ? "TIMEOUT" : "NETWORK_ERROR";
+                    const message = timedOut
+                        ? "API通信がタイムアウトしました。"
+                        : "APIサーバーへ接続できませんでした。";
+
+                    console.error(`[DOOH API] ${method} ${url} -> ${timedOut ? "timeout" : "network error"}`);
+                    throw new DoohApiError(code, message, { url, cause: err });
+                }
+
+                let responseText;
+
+                try {
+                    responseText = await response.text();
+                } catch (err) {
+                    const timedOut = controller.signal.aborted || err?.name === "AbortError";
+                    const code = timedOut ? "TIMEOUT" : "NETWORK_ERROR";
+                    const message = timedOut
+                        ? "API通信がタイムアウトしました。"
+                        : "APIレスポンスを読み取れませんでした。";
+                    const result = timedOut ? "timeout" : `${response.status} response read error`;
+
+                    console.error(`[DOOH API] ${method} ${url} -> ${result}`);
+                    throw new DoohApiError(code, message, {
                         status: response.status,
                         url,
                         cause: err
                     });
                 }
+                let data = null;
+
+                if (responseText) {
+                    try {
+                        data = JSON.parse(responseText);
+                    } catch (err) {
+                        if (!response.ok) {
+                            console.error(`[DOOH API] ${method} ${url} -> ${response.status}`);
+                            throw new DoohApiError("HTTP_ERROR", `HTTP ${response.status}`, {
+                                status: response.status,
+                                url,
+                                cause: err
+                            });
+                        }
+
+                        console.error(`[DOOH API] ${method} ${url} -> ${response.status} invalid JSON`);
+                        throw new DoohApiError("INVALID_JSON", "APIから不正なJSONを受信しました。", {
+                            status: response.status,
+                            url,
+                            cause: err
+                        });
+                    }
+                }
+
+                if (!response.ok) {
+                    const detail = data && typeof data.detail === "string"
+                        ? data.detail
+                        : `HTTP ${response.status}`;
+
+                    console.error(`[DOOH API] ${method} ${url} -> ${response.status}`);
+                    throw new DoohApiError("HTTP_ERROR", detail, {
+                        status: response.status,
+                        url
+                    });
+                }
+
+                return data;
+            } finally {
+                clearTimeout(timeoutId);
             }
-
-            if (!response.ok) {
-                const detail = data && typeof data.detail === "string"
-                    ? data.detail
-                    : `HTTP ${response.status}`;
-
-                console.error(`[DOOH API] ${method} ${url} -> ${response.status}`);
-                throw new DoohApiError("HTTP_ERROR", detail, {
-                    status: response.status,
-                    url
-                });
-            }
-
-            return data;
         }
 
         return {

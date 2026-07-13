@@ -168,7 +168,19 @@ function getSyncFailureMessage(err) {
     return "保存に失敗しました。サーバーに接続できません。";
 }
 
-async function syncToServer() {
+let syncRequest = null;
+
+function syncToServer() {
+    if (!syncRequest) {
+        syncRequest = performSyncToServer().finally(() => {
+            syncRequest = null;
+        });
+    }
+
+    return syncRequest;
+}
+
+async function performSyncToServer() {
     const profile = JSON.parse(localStorage.getItem("profile") || "null");
     let avatar = JSON.parse(localStorage.getItem("avatar") || "null");
 

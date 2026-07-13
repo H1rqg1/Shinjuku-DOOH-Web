@@ -324,3 +324,24 @@
   exchange separation, and queue reset through real HTTP requests.
 - Production API Base URL remains unconfirmed. No guessed URL was added to the
   Cloudflare build or shared with the Unity production configuration.
+
+## 2026-07-13 Web API Timeout and Duplicate-Sync Hardening
+
+- Rechecked the Unity polling implementation and confirmed that it de-duplicates
+  encounters by `my_id`, `target_id`, and `timestamp` without requiring a Web or
+  Unity contract change.
+- Found that the browser request timeout was cleared immediately after response
+  headers arrived. A stalled response body could therefore leave a page waiting
+  indefinitely even though a timeout was configured.
+- Kept the abort timer active through response-body reading and JSON validation.
+  Body-read aborts now produce the same normalized `TIMEOUT` result as connection
+  timeouts, and non-positive timeout settings are rejected explicitly.
+- HTTP 4xx/5xx responses with non-JSON gateway/error pages now remain
+  `HTTP_ERROR` results with URL and status instead of being misclassified as
+  successful-response JSON errors.
+- Added a shared in-flight promise around Web `POST /sync`. Repeated save actions
+  on the same page now share one request; after it settles, a later intentional
+  save can start normally.
+- Extended `scripts/test-api-client.js` with response-body timeout, invalid
+  timeout, HTML 502 response, concurrent-sync coalescing, and post-completion
+  sync-reset coverage.

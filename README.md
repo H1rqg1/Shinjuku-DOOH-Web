@@ -134,6 +134,9 @@ Deploy command: npm run deploy
 `wrangler.toml` は `public/` をWorkers Static Assetsとして配信します。
 WorkerはAPIプロキシを実装しておらず、Webブラウザーは設定されたAPIへ直接
 接続します。APIレスポンスは `cache: no-store` で取得します。
+通信タイムアウトは接続だけでなくレスポンス本文の読み込み完了まで適用されます。
+同じ画面から保存処理が同時に呼ばれた場合は、進行中の `POST /sync` を共有して
+重複送信を防ぎます。
 
 本番WebはHTTPSのため、本番APIもHTTPSが必須です。FastAPIの現在のCORSは
 `allow_origins=["*"]` と `allow_credentials=True` です。今回、既存API仕様を
