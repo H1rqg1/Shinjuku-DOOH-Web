@@ -62,7 +62,7 @@
                     </svg>
                 </span>
                 <span class="menu-label">アバター編集</span>
-                <span class="menu-caption">コーディネート</span>
+                <span class="menu-caption">コーデ・帽子・アクセ</span>
             </button>
 
         </section>
@@ -189,6 +189,8 @@
         }
 
         drawLayer(preview, avatar?.outfit);
+        drawLayer(preview, avatar?.accessory);
+        drawLayer(preview, avatar?.hat);
 
         // =============================
         // アバターのひとりごと

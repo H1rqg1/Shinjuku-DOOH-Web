@@ -56,24 +56,39 @@ vm.runInContext("initAvatar()", context);
 const outfitIds = JSON.parse(vm.runInContext("JSON.stringify(avatarData.outfit.map(item => item.id))", context));
 assert.deepStrictEqual(outfitIds, [1, 2, 3]);
 
+for (const type of ["hat", "accessory"]) {
+    const slots = JSON.parse(vm.runInContext(
+        `JSON.stringify(avatarData.${type}.map(item => ({ id: item.id, name: item.name, image: item.image })))`,
+        context
+    ));
+    assert.deepStrictEqual(slots.map(item => item.id), [0, 1, 2]);
+    assert.ok(slots.every(item => item.name === "\u306a\u3057"));
+    assert.ok(slots.every(item => item.image === ""));
+}
+
 const normalized = JSON.parse(localStorage.getItem("avatar"));
-assert.deepStrictEqual(Object.keys(normalized), ["outfit"]);
+assert.deepStrictEqual(Object.keys(normalized), ["outfit", "hat", "accessory"]);
 assert.strictEqual(normalized.outfit.id, 2);
 assert.strictEqual(normalized.outfit.image, "image/clothes/outfit2.png");
+assert.strictEqual(normalized.hat.id, 1);
+assert.strictEqual(normalized.hat.image, "");
+assert.strictEqual(normalized.accessory.id, 1);
+assert.strictEqual(normalized.accessory.image, "");
 
-localStorage.setItem("avatar", JSON.stringify({ outfit: { id: 99 }, hat: { id: 1 } }));
+localStorage.setItem("avatar", JSON.stringify({
+    outfit: { id: 99 },
+    hat: { id: 99 },
+    accessory: { id: 99 }
+}));
 vm.runInContext("loadAvatar(); saveAvatar()", context);
 const fallback = JSON.parse(localStorage.getItem("avatar"));
 assert.strictEqual(fallback.outfit.id, 1);
-assert.deepStrictEqual(Object.keys(fallback), ["outfit"]);
+assert.strictEqual(fallback.hat.id, 0);
+assert.strictEqual(fallback.accessory.id, 0);
 
 const avatarHtml = fs.readFileSync(path.join(rootDir, "avatar.html"), "utf8");
-const homeHtml = fs.readFileSync(path.join(rootDir, "home.html"), "utf8");
-const removedLabels = ["\u5e3d\u5b50", "\u30a2\u30af\u30bb\u30b5\u30ea\u30fc"];
-for (const label of removedLabels) {
-    assert.ok(!avatarHtml.includes(label));
-    assert.ok(!homeHtml.includes(label));
-}
+assert.ok(avatarHtml.includes("openModal('hat')"));
+assert.ok(avatarHtml.includes("openModal('accessory')"));
 assert.ok(!avatarSource.includes("image/hat"));
 assert.ok(!avatarSource.includes("image/accessory"));
 
@@ -94,6 +109,7 @@ const apiContext = vm.createContext({
 });
 const apiSource = fs.readFileSync(path.join(rootDir, "api.js"), "utf8");
 vm.runInContext(apiSource, apiContext, { filename: "api.js" });
+assert.match(apiSource, /buildAvatarCode\(\s*outfitId,\s*0,\s*0\s*\)/);
 
 for (const id of [1, 2, 3]) {
     assert.strictEqual(

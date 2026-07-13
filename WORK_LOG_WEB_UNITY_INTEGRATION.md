@@ -289,3 +289,16 @@
   saved-data cleanup, missing-outfit fallback, removed UI labels/references, and
   the final image file set. It also locks the existing 8-digit avatar code and
   `costume_fashion01` through `costume_fashion03` Unity mappings.
+
+## 2026-07-13 Empty Hat and Accessory Slots
+
+- Restored the hat and accessory selection buttons after clarifying that only
+  their image assets, not their selection UI, should be removed.
+- Added three selectable placeholder slots to each category. Every placeholder
+  is labeled `なし` and has no image path, so no removed asset can be requested.
+- Restored hat/accessory state persistence and preview-layer hooks so real items
+  can be added later without rebuilding the selection flow.
+- Kept the Unity-facing avatar code unchanged: Web sync still sends `0000` for
+  the unused hat/accessory sections, regardless of the selected placeholder.
+- Updated avatar regression coverage for the six empty slots, saved-state
+  normalization, absent asset directories, and the Unity zero-value invariant.

@@ -7,7 +7,9 @@
 // -----------------------------
 
 const avatar = {
-    outfit: null
+    outfit: null,
+    hat: null,
+    accessory: null
 };
 
 // -----------------------------
@@ -34,6 +36,18 @@ const avatarData = {
             name: "コーデ3",
             image: "image/clothes/outfit3.png"
         }
+    ],
+
+    hat: [
+        { id: 0, name: "なし", image: "" },
+        { id: 1, name: "なし", image: "" },
+        { id: 2, name: "なし", image: "" }
+    ],
+
+    accessory: [
+        { id: 0, name: "なし", image: "" },
+        { id: 1, name: "なし", image: "" },
+        { id: 2, name: "なし", image: "" }
     ]
 
 };
@@ -45,6 +59,8 @@ const avatarData = {
 function initAvatar() {
 
     avatar.outfit = avatarData.outfit[0];
+    avatar.hat = avatarData.hat[0];
+    avatar.accessory = avatarData.accessory[0];
 
     // 編集モード（ホームから来た場合）は保存済みの内容を復元する
     if (sessionStorage.getItem("editMode")) {
@@ -65,7 +81,7 @@ function initAvatar() {
 
 function openModal(type) {
 
-    if (type !== "outfit") {
+    if (!avatarData[type]) {
 
         return;
 
@@ -77,7 +93,13 @@ function openModal(type) {
 
     list.innerHTML = "";
 
-    title.textContent="コーデを選択";
+    const titles = {
+        outfit: "コーデを選択",
+        hat: "帽子を選択",
+        accessory: "アクセサリーを選択"
+    };
+
+    title.textContent = titles[type];
 
     avatarData[type].forEach(item=>{
 
@@ -112,10 +134,15 @@ function openModal(type) {
 
         }else{
 
-            button.innerHTML=`
-                <div class="option-placeholder">なし</div>
-                <div>${item.name}</div>
-            `;
+            const placeholder=document.createElement("div");
+            placeholder.className="option-placeholder";
+            placeholder.setAttribute("aria-hidden", "true");
+
+            const label=document.createElement("div");
+            label.textContent=item.name;
+
+            button.appendChild(placeholder);
+            button.appendChild(label);
 
         }
 
@@ -185,10 +212,15 @@ function loadAvatar(){
     }
 
     const save=JSON.parse(json);
-    const savedOutfitId=Number(save?.outfit?.id);
 
-    avatar.outfit=avatarData.outfit.find(item=>item.id===savedOutfitId)
-        || avatarData.outfit[0];
+    Object.keys(avatarData).forEach(type=>{
+
+        const savedId=Number(save?.[type]?.id);
+
+        avatar[type]=avatarData[type].find(item=>item.id===savedId)
+            || avatarData[type][0];
+
+    });
 
 }
 
@@ -216,6 +248,8 @@ function updatePreview(){
     preview.appendChild(base);
 
     drawLayer(preview,avatar.outfit);
+    drawLayer(preview,avatar.accessory);
+    drawLayer(preview,avatar.hat);
 
 }
 
@@ -263,11 +297,21 @@ function drawLayer(parent,data){
 function updateSelectedText() {
 
     const outfit = document.getElementById("selectedOutfit");
+    const hat = document.getElementById("selectedHat");
+    const accessory = document.getElementById("selectedAccessory");
 
     if (outfit) {
         outfit.textContent = avatar.outfit
             ? avatar.outfit.name
             : "なし";
+    }
+
+    if (hat) {
+        hat.textContent = avatar.hat ? avatar.hat.name : "なし";
+    }
+
+    if (accessory) {
+        accessory.textContent = avatar.accessory ? avatar.accessory.name : "なし";
     }
 
 }
@@ -279,6 +323,8 @@ function updateSelectedText() {
 function resetAvatar() {
 
     avatar.outfit = avatarData.outfit[0];
+    avatar.hat = avatarData.hat[0];
+    avatar.accessory = avatarData.accessory[0];
 
     saveAvatar();
 
