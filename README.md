@@ -38,8 +38,11 @@ DOOH_API_TIMEOUT_MS=8000
 http://127.0.0.1:8000
 ```
 
-`127.0.0.1` または `localhost` からページを開いた場合は、この値が自動で
-選択されます。ビルド時に明示する場合はPowerShellで次を実行します。
+FastAPIがリポジトリ直下の静的ファイルを配信するローカル実行では、追跡済みの
+`app-config.js`からこの値を使用します。`npm run build`で生成する`public/`版は
+ホスト名から自動推測せず、ビルド環境変数を明示してください。
+
+ビルド時に指定する場合はPowerShellで次を実行します。
 
 ```powershell
 $env:DOOH_API_BASE_URL = "http://127.0.0.1:8000"
@@ -162,3 +165,6 @@ Assets/Settings/DOOHServerConfig_Production.asset
 ```
 
 現時点では本番API Base URLは未確定です。
+
+APIのクラウド移行境界、永続化、CORS、受入条件、ロールバック手順は
+`PRODUCTION_API_MIGRATION_PLAN.md`に記載しています。

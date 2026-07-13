@@ -367,3 +367,27 @@
   conflicting-payload rejection, retry-state persistence, reset cleanup,
   republishing after reset, legacy requests without `sync_id`, and temporary-file
   cleanup.
+
+## 2026-07-14 Production Completion Audit
+
+- Re-ran the API-separation completion audit against the current repository and
+  public deployment rather than treating previous implementation notes as proof.
+- Confirmed the worktree was clean on `main` at `e0d3fc4` before this audit.
+- Confirmed the public Web `app-config.js` currently contains `apiBaseUrl: ""`.
+  The public Web therefore does not have a production API target.
+- Confirmed local URL references remain limited to local source configuration,
+  documentation, and tests; production static builds do not silently select a
+  loopback or Web-origin API.
+- Confirmed the Web Worker remains a static-asset service and does not contain an
+  unsafe API forwarding proxy.
+- Completed locally: Base URL separation, URL normalization, response
+  compatibility, timeout/error handling, duplicate suppression, retry
+  idempotency, BLE compatibility, Unity encounter output, atomic local storage,
+  documentation, automated tests, builds, commits, and pushes.
+- Not yet verifiable: production HTTPS API connectivity, production Web-origin
+  CORS, durable cloud storage, end-to-end Web -> cloud API -> Unity behavior, and
+  the Production API Base URL shared with Unity.
+- Added `PRODUCTION_API_MIGRATION_PLAN.md` with the required contract, deployment
+  boundary, storage requirements, CORS/cache rules, rollout sequence, acceptance
+  gates, rollback, and exact information needed to unblock implementation.
+- No placeholder URL or guessed Cloudflare API service was configured.
