@@ -476,3 +476,16 @@
 - Kept non-loopback behavior unchanged so Cloudflare production never guesses an
   API destination.
 - Added an API-client regression test for the loopback fallback.
+
+## 2026-07-15 Save Confirmation Message
+
+- Unified the user-facing result for both successful API synchronization and
+  locally saved data awaiting synchronization to `保存完了`.
+- Kept API failures in the developer console and retained the pending sync ID so
+  server synchronization can be repaired and retried later.
+- Left missing-profile and validation warnings unchanged because those cases do
+  not represent a completed local save.
+- Added API-client regression assertions for successful, failed, and retried
+  synchronization messages.
+- API client, avatar, administrator client, FastAPI integration, and static build
+  verification all passed.

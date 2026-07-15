@@ -274,11 +274,14 @@ async function run() {
     const syncResults = await Promise.all([firstSync, concurrentSync]);
     assert.strictEqual(syncResults[0].ok, true);
     assert.strictEqual(syncResults[1].ok, true);
+    assert.strictEqual(syncResults[0].message, "保存完了");
+    assert.strictEqual(syncResults[1].message, "保存完了");
     assert.strictEqual(syncPostCount, 1);
     assert.strictEqual(syncContext.localStorage.getItem("dooh_pending_sync"), null);
 
     const laterSync = await vm.runInContext("syncToServer()", syncContext);
     assert.strictEqual(laterSync.ok, true);
+    assert.strictEqual(laterSync.message, "保存完了");
     assert.strictEqual(syncPostCount, 2);
     assert.notStrictEqual(completedSyncIds[0], completedSyncIds[1]);
 
@@ -314,10 +317,12 @@ async function run() {
 
     const failedSync = await vm.runInContext("syncToServer()", retryContext);
     assert.strictEqual(failedSync.ok, false);
+    assert.strictEqual(failedSync.message, "保存完了");
     assert.ok(retryContext.localStorage.getItem("dooh_pending_sync"));
 
     const retriedSync = await vm.runInContext("syncToServer()", retryContext);
     assert.strictEqual(retriedSync.ok, true);
+    assert.strictEqual(retriedSync.message, "保存完了");
     assert.strictEqual(retrySyncIds.length, 2);
     assert.strictEqual(retrySyncIds[0], retrySyncIds[1]);
     assert.strictEqual(retryContext.localStorage.getItem("dooh_pending_sync"), null);

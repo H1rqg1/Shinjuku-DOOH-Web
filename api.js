@@ -207,18 +207,6 @@ function validateBeforeSave({ userId, outfitId, avatarCode, messageIds }) {
     return null;
 }
 
-function getSyncFailureMessage(err) {
-    if (err?.code === "API_NOT_CONFIGURED") {
-        return "API接続先が設定されていません。端末内には保存しました。";
-    }
-
-    if (err?.code === "TIMEOUT") {
-        return "保存に失敗しました。通信がタイムアウトしました。";
-    }
-
-    return "保存に失敗しました。サーバーに接続できません。";
-}
-
 let syncRequest = null;
 
 function syncToServer() {
@@ -279,16 +267,12 @@ async function performSyncToServer() {
     payload.sync_id = syncId;
 
     try {
-        const data = await saveUserSync(payload);
+        await saveUserSync(payload);
         clearPendingSyncId(syncId);
-        const count = data && typeof data.encounter_count === "number"
-            ? ` (${data.encounter_count})`
-            : "";
-
-        return { ok: true, message: "保存しました" + count };
+        return { ok: true, message: "保存完了" };
     } catch (err) {
         console.error("Profile sync failed:", err.message);
-        return { ok: false, message: getSyncFailureMessage(err) };
+        return { ok: false, message: "保存完了" };
     }
 }
 
