@@ -442,3 +442,7 @@
   JavaScript/CSS, and all three outfit images resolve to HTTP 200 after redirects.
 - Re-scanned deployed administrator assets using the ignored local password and
   confirmed the password is not present publicly.
+- Kept the fixed administrator ID check in the Web client as well as the API so
+  the public static site can reach the administrator login screen before a
+  production API is configured. Password verification and every privileged
+  operation remain server-only.

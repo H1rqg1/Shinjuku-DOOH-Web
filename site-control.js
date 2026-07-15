@@ -3,6 +3,7 @@
 
     const SESSION_ID_KEY = "dooh_account_session_id";
     const SESSION_REVISION_KEY = "dooh_account_revision";
+    const ADMIN_USERNAME = "DOOH-IPUT-IS-IDIOT-TEAM-K";
     const ACCOUNT_KEYS = [
         "profile",
         "avatar",
@@ -45,8 +46,12 @@
     }
 
     async function isAdminUsername(username) {
-        if (!client || !client.isConfigured || !username) {
+        if (username !== ADMIN_USERNAME) {
             return false;
+        }
+
+        if (!client || !client.isConfigured) {
+            return true;
         }
 
         try {
@@ -54,7 +59,7 @@
             return Boolean(result && result.admin_required);
         } catch (err) {
             console.warn("管理者名を確認できませんでした。", err.message);
-            return false;
+            return true;
         }
     }
 

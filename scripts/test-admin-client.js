@@ -94,7 +94,7 @@ async function testSiteControl() {
         async post(endpoint, body) {
             calls.push({ endpoint, body });
             if (endpoint === "/admin/identify") {
-                return { admin_required: body.username === "administrator" };
+                return { admin_required: body.username === "DOOH-IPUT-IS-IDIOT-TEAM-K" };
             }
             if (endpoint === "/account/session") {
                 return accountStatus;
@@ -129,8 +129,12 @@ async function testSiteControl() {
     assert.ok(calls.some(call => call.endpoint === "/account/session"));
     assert.strictEqual(localStorage.getItem("dooh_account_session_id"), "browser-session");
     assert.strictEqual(
-        await window.DOOH_SITE_CONTROL.isAdminUsername("administrator"),
+        await window.DOOH_SITE_CONTROL.isAdminUsername("DOOH-IPUT-IS-IDIOT-TEAM-K"),
         true
+    );
+    assert.strictEqual(
+        await window.DOOH_SITE_CONTROL.isAdminUsername("ordinary-user"),
+        false
     );
 
     accountStatus = { status: "force_logout", revision: 1 };
@@ -139,6 +143,12 @@ async function testSiteControl() {
     assert.strictEqual(localStorage.getItem("profile"), null);
     assert.strictEqual(alerts.length, 1);
     assert.strictEqual(replacedUrl, "index.html?apiBaseUrl=test");
+
+    client.isConfigured = false;
+    assert.strictEqual(
+        await window.DOOH_SITE_CONTROL.isAdminUsername("DOOH-IPUT-IS-IDIOT-TEAM-K"),
+        true
+    );
 }
 
 async function run() {
