@@ -446,3 +446,12 @@
   the public static site can reach the administrator login screen before a
   production API is configured. Password verification and every privileged
   operation remain server-only.
+- Pushed this static admin-routing follow-up as `56baa4f`; all local tests and
+  the production-style static build passed again.
+- GitHub reported three Cloudflare checks for the same commit: `shinjukuweb`
+  succeeded, while `shinjuku0dooh0web` and `shinjukudoohweb` failed. This confirms
+  multiple Cloudflare Worker services are connected to the repository.
+- Despite the successful `shinjukuweb` check, the public `site-control.js` kept
+  the previous ETag and did not yet contain the fixed administrator ID after
+  repeated cache-busted checks. The latest routing change was therefore not
+  considered publicly deployed at that point.
