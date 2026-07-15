@@ -142,8 +142,22 @@
         const configuredBaseUrl = normalizeApiBaseUrl(
             config.apiBaseUrl || config.defaultApiBaseUrl || ""
         );
-        assertPageSecurity(configuredBaseUrl);
-        return configuredBaseUrl;
+        if (configuredBaseUrl) {
+            assertPageSecurity(configuredBaseUrl);
+            return configuredBaseUrl;
+        }
+
+        const pageLocation = global.location || {};
+        if (
+            isLoopbackHost(pageLocation.hostname)
+            && (pageLocation.protocol === "http:" || pageLocation.protocol === "https:")
+        ) {
+            const pageOrigin = pageLocation.origin
+                || `${pageLocation.protocol}//${pageLocation.host || pageLocation.hostname}`;
+            return normalizeApiBaseUrl(pageOrigin);
+        }
+
+        return "";
     }
 
     function createApiClient(options = {}) {

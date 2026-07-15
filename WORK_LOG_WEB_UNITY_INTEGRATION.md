@@ -464,3 +464,15 @@
   administrator ID can be entered without changing its fixed value.
 - Added a regression test that fails when the nickname limit is shorter than the
   configured administrator ID.
+
+## 2026-07-15 Local Administrator API Fallback
+
+- Confirmed the running local FastAPI server returned HTTP 200 from `/health`
+  and served an `app-config.js` containing `http://127.0.0.1:8000`.
+- The browser still displayed the API-not-configured administrator error, which
+  can occur when an older empty `app-config.js` response remains cached.
+- Added a loopback-only fallback: when explicit configuration is empty on
+  `127.0.0.1` or `localhost`, the API client uses the current page Origin.
+- Kept non-loopback behavior unchanged so Cloudflare production never guesses an
+  API destination.
+- Added an API-client regression test for the loopback fallback.

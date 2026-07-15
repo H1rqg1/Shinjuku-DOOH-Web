@@ -115,6 +115,21 @@ async function run() {
     const unconfiguredClient = api.createApiClient({ baseUrl: "", fetchImpl: async () => response(200, "{}") });
     assert.throws(() => unconfiguredClient.buildUrl("/stats"), err => err.code === "API_NOT_CONFIGURED");
 
+    const loopbackContext = createContext();
+    loopbackContext.window.location = {
+        protocol: "http:",
+        hostname: "127.0.0.1",
+        host: "127.0.0.1:8000",
+        origin: "http://127.0.0.1:8000",
+        search: ""
+    };
+    loopbackContext.window.DOOH_CONFIG.apiBaseUrl = "";
+    loadScript(loopbackContext, "api-client.js");
+    assert.strictEqual(
+        loopbackContext.window.DOOH_API_CLIENT.baseUrl,
+        "http://127.0.0.1:8000"
+    );
+
     const invalidJsonClient = api.createApiClient({
         baseUrl: "https://api.example.test",
         fetchImpl: async () => response(200, "not-json")
