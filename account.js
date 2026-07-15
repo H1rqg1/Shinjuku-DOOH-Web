@@ -2,6 +2,8 @@
     const PROFILE_KEY = "profile";
     const AVATAR_KEY = "avatar";
     const USER_ID_KEY = "user_id";
+    const SESSION_ID_KEY = "dooh_account_session_id";
+    const SESSION_REVISION_KEY = "dooh_account_revision";
 
     function readJson(key) {
         try {
@@ -53,6 +55,9 @@
         localStorage.removeItem(PROFILE_KEY);
         localStorage.removeItem(AVATAR_KEY);
         localStorage.removeItem(USER_ID_KEY);
+        localStorage.removeItem(SESSION_ID_KEY);
+        localStorage.removeItem(SESSION_REVISION_KEY);
+        localStorage.removeItem("dooh_pending_sync");
         window.location.href = withSearch("profile.html");
     }
 

@@ -477,6 +477,16 @@ async function goToAvatar() {
         return;
     }
 
+    if (window.DOOH_SITE_CONTROL) {
+        const adminRequired = await window.DOOH_SITE_CONTROL.isAdminUsername(nickname);
+
+        if (adminRequired) {
+            sessionStorage.setItem("dooh_admin_username", nickname);
+            window.location.href = "admin-login.html" + window.location.search;
+            return;
+        }
+    }
+
     if (age === "") {
         alert("年齢を入力してください");
         return;

@@ -268,6 +268,7 @@ async function performSyncToServer() {
     const payload = {
         user_id: userId,
         display_name: displayName,
+        age: profile.age ? String(profile.age) : null,
         avatar_code: avatarCode,
         costume_id: buildCostumeId(outfitId),
         selected_message_ids: messageIds,

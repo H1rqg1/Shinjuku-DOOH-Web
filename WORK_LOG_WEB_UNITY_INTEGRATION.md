@@ -402,3 +402,35 @@
 - The Cloudflare Deployments dashboard redirected to its sign-in page in the
   available browser session, so the dashboard build-status badge could not be
   inspected. Public delivery was verified independently over HTTPS.
+
+## 2026-07-15 Administrator Mode
+
+- Added a fixed administrator username trigger without placing the administrator
+  password in tracked source or generated static assets.
+- Stored the requested local password only in the ignored root `.env`; production
+  still requires the same `DOOH_ADMIN_PASSWORD` in the API host's secret settings.
+- Added server-side administrator login with one-hour signed bearer tokens and a
+  temporary lock after repeated failed attempts.
+- Added authenticated profile listing, aggregate page-view metrics, forced
+  logout, and irreversible account deletion endpoints.
+- Added browser heartbeat revisions so forced logout is applied within 30 seconds.
+  Deleted IDs are tombstoned, preventing delayed `/sync` retries from restoring
+  removed profiles.
+- Added aggregate-only page view recording. Analytics stores path counts but not
+  visitor IDs.
+- Added `admin-login.html` and `admin.html` while leaving the existing user-facing
+  screens and avatar selectors visually unchanged.
+- Added age to the Web-only profile record shown to administrators; Unity-facing
+  encounter fields remain unchanged.
+- Expanded FastAPI integration tests for authentication, authorization, metrics,
+  profile listing, forced logout, deletion, and deleted-account replay rejection.
+- Added browser-side tests for token handling, authorization headers, admin path
+  encoding, view recording, heartbeat, and forced local logout.
+- API client, avatar, administrator client, and FastAPI integration tests passed.
+- Static build passed and contained the new administrator assets without the
+  requested password or token secret.
+- In-app browser navigation to the local verification URL was blocked by browser
+  policy, so visual DOM inspection could not be completed in that browser.
+- The public Cloudflare Web still has an empty production `apiBaseUrl`; therefore
+  administrator operations remain unavailable there until the production API is
+  deployed and configured.

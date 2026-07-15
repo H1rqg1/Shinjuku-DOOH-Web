@@ -2,6 +2,12 @@
     "use strict";
 
     const KNOWN_ENDPOINTS = [
+        "/admin/users",
+        "/admin/metrics",
+        "/admin/identify",
+        "/admin/login",
+        "/account/session",
+        "/analytics/view",
         "/profiles/recent",
         "/message-options",
         "/user-messages",

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理者モードへのログイン</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <main class="phone admin-login-page">
+        <header class="page-header">
+            <p class="admin-eyebrow">Administrator</p>
+            <h1>管理者モードへのログイン</h1>
+            <p>管理者パスワードを入力してください。</p>
+        </header>
+
+        <form class="admin-login-form" id="adminLoginForm">
+            <div class="input-group">
+                <label for="adminUsername">管理者ID</label>
+                <input id="adminUsername" type="text" readonly autocomplete="username">
+            </div>
+
+            <div class="input-group">
+                <label for="adminPassword">パスワード</label>
+                <input id="adminPassword" type="password" required autocomplete="current-password">
+            </div>
+
+            <p class="admin-error" id="adminLoginError" role="alert"></p>
+
+            <button class="next-button" id="adminLoginButton" type="submit">
+                ログイン
+            </button>
+            <button class="text-button" id="adminLoginCancel" type="button">
+                戻る
+            </button>
+        </form>
+    </main>
+
+    <script src="app-config.js"></script>
+    <script src="api-client.js"></script>
+    <script src="site-control.js"></script>
+    <script src="admin.js"></script>
+    <script>
+        const adminUsername = window.DOOH_ADMIN.getUsername();
+        const usernameInput = document.getElementById("adminUsername");
+        const passwordInput = document.getElementById("adminPassword");
+        const loginButton = document.getElementById("adminLoginButton");
+        const errorText = document.getElementById("adminLoginError");
+
+        if (!adminUsername) {
+            window.location.replace("profile.html" + window.location.search);
+        } else {
+            usernameInput.value = adminUsername;
+        }
+
+        document.getElementById("adminLoginForm").addEventListener("submit", async event => {
+            event.preventDefault();
+            errorText.textContent = "";
+            loginButton.disabled = true;
+
+            try {
+                await window.DOOH_ADMIN.login(adminUsername, passwordInput.value);
+                window.location.replace("admin.html" + window.location.search);
+            } catch (err) {
+                errorText.textContent = err.message || "ログインできませんでした。";
+                passwordInput.select();
+            } finally {
+                loginButton.disabled = false;
+            }
+        });
+
+        document.getElementById("adminLoginCancel").addEventListener("click", () => {
+            window.DOOH_ADMIN.logout();
+            window.location.href = "profile.html" + window.location.search;
+        });
+    </script>
+</body>
+</html>

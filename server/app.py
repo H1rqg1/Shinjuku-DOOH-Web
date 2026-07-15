@@ -5,13 +5,19 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from threading import Lock
 from typing import Any, Dict, List, Optional
+import base64
+import hashlib
+import hmac
 import json
 import os
+import secrets
+import time
 from zoneinfo import ZoneInfo
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
 
@@ -19,6 +25,9 @@ BASE_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = BASE_DIR.parent
 DATA_DIR = BASE_DIR / "data"
 DATA_PATH = DATA_DIR / "dooh_state.json"
+ADMIN_USERNAME = "DOOH-IPUT-IS-IDIOT-TEAM-K"
+
+load_dotenv(PROJECT_DIR / ".env")
 
 try:
     JST = ZoneInfo("Asia/Tokyo")
@@ -26,7 +35,13 @@ except Exception:
     JST = timezone(timedelta(hours=9), name="Asia/Tokyo")
 
 data_lock = Lock()
+admin_auth_lock = Lock()
 MAX_SYNC_REQUESTS = 1000
+MAX_DELETED_USERS = 1000
+ADMIN_SESSION_TTL_SECONDS = 60 * 60
+ADMIN_LOGIN_WINDOW_SECONDS = 5 * 60
+ADMIN_LOGIN_MAX_FAILURES = 5
+admin_login_failures: Dict[str, List[float]] = {}
 
 app = FastAPI(title="Shinjuku DOOH Web Bridge")
 
@@ -53,6 +68,7 @@ class UserMessagesPayload(BaseModel):
 
 class SyncPayload(AvatarPayload):
     sync_id: Optional[str] = None
+    age: Optional[str] = None
     selected_message_ids: List[str] = Field(default_factory=list)
     interest_ids: List[str] = Field(default_factory=list)
     interests: List[str] = Field(default_factory=list)
@@ -69,6 +85,24 @@ class EncounterPayload(BaseModel):
     message_ids: List[str] = Field(default_factory=list)
     avatar_code: Optional[str] = None
     display_name: Optional[str] = None
+
+
+class AdminIdentifyPayload(BaseModel):
+    username: str = Field(min_length=1, max_length=80)
+
+
+class AdminLoginPayload(AdminIdentifyPayload):
+    password: str = Field(min_length=1, max_length=256)
+
+
+class AccountSessionPayload(BaseModel):
+    user_id: str = Field(min_length=1, max_length=128)
+    session_id: str = Field(min_length=1, max_length=128)
+    revision: int = Field(default=0, ge=0)
+
+
+class AnalyticsViewPayload(BaseModel):
+    path: str = Field(min_length=1, max_length=120)
 
 
 DEFAULT_MESSAGES = [
@@ -110,6 +144,12 @@ def initial_state() -> Dict[str, Any]:
         "encounters": [],
         "messages": DEFAULT_MESSAGES,
         "sync_requests": {},
+        "deleted_users": {},
+        "analytics": {
+            "total_views": 0,
+            "by_path": {},
+            "updated_at": None,
+        },
     }
 
 
@@ -135,6 +175,8 @@ def read_state() -> Dict[str, Any]:
     state.setdefault("encounters", [])
     state.setdefault("messages", DEFAULT_MESSAGES)
     state.setdefault("sync_requests", {})
+    state.setdefault("deleted_users", {})
+    state.setdefault("analytics", initial_state()["analytics"])
 
     if not isinstance(state["users"], dict):
         state["users"] = {}
@@ -144,6 +186,17 @@ def read_state() -> Dict[str, Any]:
         state["messages"] = DEFAULT_MESSAGES
     if not isinstance(state["sync_requests"], dict):
         state["sync_requests"] = {}
+    if not isinstance(state["deleted_users"], dict):
+        state["deleted_users"] = {}
+    if not isinstance(state["analytics"], dict):
+        state["analytics"] = initial_state()["analytics"]
+
+    analytics = state["analytics"]
+    if not isinstance(analytics.get("total_views"), int):
+        analytics["total_views"] = 0
+    if not isinstance(analytics.get("by_path"), dict):
+        analytics["by_path"] = {}
+    analytics.setdefault("updated_at", None)
 
     return state
 
@@ -189,6 +242,107 @@ def trim_sync_requests(sync_requests: Dict[str, Any]) -> None:
         del sync_requests[oldest_sync_id]
 
 
+def trim_deleted_users(deleted_users: Dict[str, Any]) -> None:
+    while len(deleted_users) > MAX_DELETED_USERS:
+        oldest_user_id = next(iter(deleted_users))
+        del deleted_users[oldest_user_id]
+
+
+def get_admin_credentials() -> Optional[Dict[str, str]]:
+    username = ADMIN_USERNAME
+    password = os.getenv("DOOH_ADMIN_PASSWORD", "")
+
+    if not password:
+        return None
+
+    token_secret = os.getenv("DOOH_ADMIN_TOKEN_SECRET", "")
+    if not token_secret:
+        token_secret = hashlib.sha256(f"{username}\0{password}".encode("utf-8")).hexdigest()
+
+    return {
+        "username": username,
+        "password": password,
+        "token_secret": token_secret,
+    }
+
+
+def encode_token_part(value: bytes) -> str:
+    return base64.urlsafe_b64encode(value).rstrip(b"=").decode("ascii")
+
+
+def decode_token_part(value: str) -> bytes:
+    padding = "=" * (-len(value) % 4)
+    return base64.urlsafe_b64decode(f"{value}{padding}")
+
+
+def create_admin_token(username: str, secret: str) -> tuple[str, int]:
+    expires_at = int(time.time()) + ADMIN_SESSION_TTL_SECONDS
+    payload = json.dumps(
+        {"sub": username, "exp": expires_at},
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    encoded_payload = encode_token_part(payload)
+    signature = hmac.new(
+        secret.encode("utf-8"),
+        encoded_payload.encode("ascii"),
+        hashlib.sha256,
+    ).digest()
+    return f"{encoded_payload}.{encode_token_part(signature)}", expires_at
+
+
+def require_admin(authorization: Optional[str] = Header(default=None)) -> str:
+    credentials = get_admin_credentials()
+    if credentials is None:
+        raise HTTPException(status_code=503, detail="Admin mode is not configured")
+
+    scheme, _, token = (authorization or "").partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise HTTPException(status_code=401, detail="Admin authentication is required")
+
+    try:
+        encoded_payload, encoded_signature = token.split(".", 1)
+        expected_signature = hmac.new(
+            credentials["token_secret"].encode("utf-8"),
+            encoded_payload.encode("ascii"),
+            hashlib.sha256,
+        ).digest()
+        supplied_signature = decode_token_part(encoded_signature)
+        payload = json.loads(decode_token_part(encoded_payload).decode("utf-8"))
+    except (ValueError, TypeError, json.JSONDecodeError):
+        raise HTTPException(status_code=401, detail="Admin session is invalid")
+
+    if not hmac.compare_digest(expected_signature, supplied_signature):
+        raise HTTPException(status_code=401, detail="Admin session is invalid")
+    if payload.get("sub") != credentials["username"]:
+        raise HTTPException(status_code=401, detail="Admin session is invalid")
+    if not isinstance(payload.get("exp"), int) or payload["exp"] <= int(time.time()):
+        raise HTTPException(status_code=401, detail="Admin session has expired")
+
+    return credentials["username"]
+
+
+def admin_login_key(request: Request) -> str:
+    forwarded_for = request.headers.get("cf-connecting-ip") or request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        return forwarded_for.split(",", 1)[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def get_recent_admin_failures(key: str) -> List[float]:
+    cutoff = time.monotonic() - ADMIN_LOGIN_WINDOW_SECONDS
+    failures = [value for value in admin_login_failures.get(key, []) if value >= cutoff]
+    admin_login_failures[key] = failures
+    return failures
+
+
+def normalize_view_path(value: str) -> str:
+    path = value.strip().split("?", 1)[0].split("#", 1)[0]
+    if not path.startswith("/"):
+        path = f"/{path}"
+    return path[:120]
+
+
 def validate_message_ids(message_ids: List[str]) -> List[str]:
     normalized_ids = []
 
@@ -222,6 +376,9 @@ def get_user(state: Dict[str, Any], user_id: str) -> Dict[str, Any]:
     if not user_id:
         raise HTTPException(status_code=400, detail="user_id is required")
 
+    if user_id in state.get("deleted_users", {}):
+        raise HTTPException(status_code=410, detail="Account was deleted")
+
     users = state["users"]
     user = users.get(user_id)
 
@@ -235,10 +392,14 @@ def get_user(state: Dict[str, Any], user_id: str) -> Dict[str, Any]:
 def update_avatar(state: Dict[str, Any], payload: AvatarPayload) -> Dict[str, Any]:
     user = get_user(state, payload.user_id)
     costume_id = payload.costume_id or costume_id_from_avatar_code(payload.avatar_code)
+    display_name = payload.display_name.strip()
+
+    if secrets.compare_digest(display_name, ADMIN_USERNAME):
+        raise HTTPException(status_code=403, detail="Administrator username is reserved")
 
     user.update(
         {
-            "display_name": payload.display_name.strip(),
+            "display_name": display_name,
             "avatar_code": payload.avatar_code,
             "costume_id": costume_id,
             "updated_at": now_iso(),
@@ -258,6 +419,7 @@ def update_messages(state: Dict[str, Any], payload: UserMessagesPayload) -> Dict
 def update_profile_exchange_fields(state: Dict[str, Any], payload: SyncPayload) -> Dict[str, Any]:
     user = get_user(state, payload.user_id)
 
+    user["age"] = normalize_text(payload.age)
     user["interest_ids"] = [
         interest_id for interest_id in (normalize_text(value) for value in payload.interest_ids)
         if interest_id is not None
@@ -269,6 +431,37 @@ def update_profile_exchange_fields(state: Dict[str, Any], payload: SyncPayload) 
     user["updated_at"] = now_iso()
 
     return user
+
+
+def is_user_active(user: Dict[str, Any]) -> bool:
+    last_active_at = parse_timestamp_to_jst(user.get("last_active_at"))
+    if last_active_at is None or not normalize_text(user.get("active_session_id")):
+        return False
+    return now_jst() - last_active_at <= timedelta(minutes=2)
+
+
+def build_admin_users(state: Dict[str, Any]) -> List[Dict[str, Any]]:
+    users = []
+
+    for user_id, user in state["users"].items():
+        if not isinstance(user, dict):
+            continue
+
+        users.append({
+            "user_id": user_id,
+            "display_name": normalize_text(user.get("display_name")) or "Unknown",
+            "age": normalize_text(user.get("age")),
+            "interests": list(user.get("interests") or [])[:5],
+            "message_ids": list(user.get("selected_message_ids") or [])[:3],
+            "costume_id": normalize_text(user.get("costume_id")),
+            "avatar_code": normalize_text(user.get("avatar_code")),
+            "updated_at": normalize_text(user.get("updated_at")),
+            "last_active_at": normalize_text(user.get("last_active_at")),
+            "active": is_user_active(user),
+        })
+
+    users.sort(key=lambda user: user.get("last_active_at") or user.get("updated_at") or "", reverse=True)
+    return users
 
 
 def append_encounter(state: Dict[str, Any], user: Dict[str, Any]) -> Dict[str, Any]:
@@ -544,6 +737,146 @@ def message_options() -> Dict[str, Any]:
         state = read_state()
 
     return {"messages": state["messages"]}
+
+
+@app.post("/admin/identify")
+def identify_admin(payload: AdminIdentifyPayload) -> Dict[str, Any]:
+    credentials = get_admin_credentials()
+    username = payload.username.strip()
+    admin_required = secrets.compare_digest(username, ADMIN_USERNAME)
+    return {
+        "admin_required": admin_required,
+        "admin_configured": credentials is not None,
+    }
+
+
+@app.post("/admin/login")
+def admin_login(payload: AdminLoginPayload, request: Request) -> Dict[str, Any]:
+    credentials = get_admin_credentials()
+    if credentials is None:
+        raise HTTPException(status_code=503, detail="Admin mode is not configured")
+
+    key = admin_login_key(request)
+    with admin_auth_lock:
+        failures = get_recent_admin_failures(key)
+        if len(failures) >= ADMIN_LOGIN_MAX_FAILURES:
+            raise HTTPException(status_code=429, detail="Too many failed login attempts")
+
+    username_matches = secrets.compare_digest(payload.username.strip(), credentials["username"])
+    password_matches = secrets.compare_digest(payload.password, credentials["password"])
+
+    if not username_matches or not password_matches:
+        with admin_auth_lock:
+            get_recent_admin_failures(key).append(time.monotonic())
+        raise HTTPException(status_code=401, detail="Username or password is incorrect")
+
+    with admin_auth_lock:
+        admin_login_failures.pop(key, None)
+
+    token, expires_at = create_admin_token(credentials["username"], credentials["token_secret"])
+    return {
+        "token": token,
+        "token_type": "bearer",
+        "expires_at": expires_at,
+    }
+
+
+@app.post("/analytics/view")
+def record_page_view(payload: AnalyticsViewPayload) -> Dict[str, Any]:
+    path = normalize_view_path(payload.path)
+
+    with data_lock:
+        state = read_state()
+        analytics = state["analytics"]
+        analytics["total_views"] += 1
+        analytics["by_path"][path] = int(analytics["by_path"].get(path, 0)) + 1
+        analytics["updated_at"] = now_iso()
+        write_state(state)
+
+    return {"recorded": True}
+
+
+@app.post("/account/session")
+def update_account_session(payload: AccountSessionPayload) -> Dict[str, Any]:
+    user_id = payload.user_id.strip()
+
+    with data_lock:
+        state = read_state()
+        if user_id in state["deleted_users"]:
+            return {"status": "deleted"}
+
+        user = state["users"].get(user_id)
+        if not isinstance(user, dict):
+            return {"status": "unknown"}
+
+        revision = int(user.get("session_revision") or 0)
+        if payload.revision != revision:
+            return {"status": "force_logout", "revision": revision}
+
+        user["active_session_id"] = payload.session_id.strip()
+        user["last_active_at"] = now_iso()
+        write_state(state)
+
+    return {"status": "active", "revision": revision}
+
+
+@app.get("/admin/users")
+def list_admin_users(_admin: str = Depends(require_admin)) -> Dict[str, Any]:
+    with data_lock:
+        state = read_state()
+
+    users = build_admin_users(state)
+    return {
+        "users": users,
+        "total": len(users),
+        "active": sum(1 for user in users if user["active"]),
+    }
+
+
+@app.get("/admin/metrics")
+def admin_metrics(_admin: str = Depends(require_admin)) -> Dict[str, Any]:
+    with data_lock:
+        state = read_state()
+        analytics = deepcopy(state["analytics"])
+
+    return analytics
+
+
+@app.post("/admin/users/{user_id}/logout")
+def force_logout_user(user_id: str, _admin: str = Depends(require_admin)) -> Dict[str, Any]:
+    with data_lock:
+        state = read_state()
+        user = state["users"].get(user_id)
+        if not isinstance(user, dict):
+            raise HTTPException(status_code=404, detail="User was not found")
+
+        revision = int(user.get("session_revision") or 0) + 1
+        user["session_revision"] = revision
+        user["force_logout_at"] = now_iso()
+        user.pop("active_session_id", None)
+        write_state(state)
+
+    return {"message": "logout_requested", "user_id": user_id, "revision": revision}
+
+
+@app.delete("/admin/users/{user_id}")
+def delete_admin_user(user_id: str, _admin: str = Depends(require_admin)) -> Dict[str, Any]:
+    with data_lock:
+        state = read_state()
+        if not isinstance(state["users"].get(user_id), dict):
+            raise HTTPException(status_code=404, detail="User was not found")
+
+        del state["users"][user_id]
+        state["encounters"] = [
+            encounter for encounter in state["encounters"]
+            if not isinstance(encounter, dict) or encounter.get("my_id") != user_id
+        ]
+        state["sync_requests"] = {}
+        state["deleted_users"][user_id] = {"deleted_at": now_iso()}
+        trim_deleted_users(state["deleted_users"])
+        write_state(state)
+
+    return {"message": "deleted", "user_id": user_id}
 
 
 @app.delete("/encounters")

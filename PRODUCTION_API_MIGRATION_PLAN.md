@@ -48,6 +48,14 @@ The production service must preserve these endpoints and field names:
 - `POST /user-messages`
 - `GET /message-options`
 - `GET /profiles/recent`
+- `POST /admin/identify`
+- `POST /admin/login`
+- `GET /admin/users`
+- `GET /admin/metrics`
+- `POST /admin/users/{user_id}/logout`
+- `DELETE /admin/users/{user_id}`
+- `POST /analytics/view`
+- `POST /account/session`
 
 Important compatibility requirements:
 
@@ -60,6 +68,8 @@ Important compatibility requirements:
   older clients.
 - Web-only interests do not appear in Unity-facing encounter objects.
 - Timestamps remain ISO 8601 values and statistics are calculated in JST.
+- Administrator credentials and token-signing secrets remain API-host secrets
+  and are never injected into `app-config.js` or another static asset.
 
 ## 4. Persistent storage requirements
 

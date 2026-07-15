@@ -168,3 +168,24 @@ Assets/Settings/DOOHServerConfig_Production.asset
 
 APIのクラウド移行境界、永続化、CORS、受入条件、ロールバック手順は
 `PRODUCTION_API_MIGRATION_PLAN.md`に記載しています。
+
+## 管理者モード
+
+プロフィール設定で固定の管理者ID
+`DOOH-IPUT-IS-IDIOT-TEAM-K`を入力すると、APIの
+`POST /admin/identify`で照合した後に`admin-login.html`へ移動します。
+認証成功後の`admin.html`では次を確認・操作できます。
+
+- APIへ同期済みの利用者プロフィール一覧
+- 直近2分以内に通信したログイン中プロフィール数
+- サイト全体とページ別の閲覧数
+- 利用者の強制ログアウト
+- 利用者アカウントと関連DOOH encounterの削除
+
+管理者パスワードは静的ファイルやGitへ保存しません。ローカルでは
+Git管理外の`.env`へ`DOOH_ADMIN_PASSWORD`を設定し、本番ではAPI配備先の
+Secretへ同じ値を設定してください。本番用には推測困難な
+`DOOH_ADMIN_TOKEN_SECRET`も別途設定します。
+
+管理者機能、閲覧数、強制操作はFastAPIへの接続が必須です。
+`app-config.js`の`apiBaseUrl`が空のCloudflare静的配信だけでは動作しません。

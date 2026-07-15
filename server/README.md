@@ -36,6 +36,35 @@ http://127.0.0.1:8000
 - `POST /encounter`: keeps the existing Unity/BLE scanner contract, including
   optional `device_name`, `device_address`, `rssi`, and `timestamp` fields.
 - `DELETE /encounters`: clears published Unity encounters.
+- `POST /admin/identify`: checks whether a nickname should enter the separate
+  administrator login flow. It never returns the password.
+- `POST /admin/login`: returns a one-hour bearer token after administrator
+  authentication. Five failed attempts from one client temporarily lock login.
+- `GET /admin/users`: returns synchronized Web profiles and recent login state.
+- `GET /admin/metrics`: returns aggregate page-view counts.
+- `POST /admin/users/{user_id}/logout`: invalidates the user's current browser
+  session. The browser clears its saved account on its next 30-second check.
+- `DELETE /admin/users/{user_id}`: removes the profile and related encounters,
+  then blocks the deleted user ID from being restored by a delayed retry.
+- `POST /analytics/view`: increments aggregate page-view counters without
+  storing visitor IDs in analytics data.
+- `POST /account/session`: records a profile heartbeat and applies administrator
+  logout/deletion decisions.
+
+## Administrator configuration
+
+The administrator username is fixed in `server/app.py` as
+`DOOH-IPUT-IS-IDIOT-TEAM-K`. The password is read
+only from `DOOH_ADMIN_PASSWORD`; it is never copied into the static build. For
+local development, put the password in the ignored repository-root `.env` file.
+Production must set the same value in the API host's secret environment. Set a
+separate random `DOOH_ADMIN_TOKEN_SECRET` in production so tokens are not signed
+with a value derived from the password.
+
+The administrator feature requires a configured API Base URL. The Cloudflare
+static Worker cannot authenticate administrators or manage profiles by itself.
+"Logged in" means the profile has sent a heartbeat within the last two minutes.
+Page views are counted only while the Web app can reach the API.
 
 When a `sync_id` is repeated with the same payload, the server returns the saved
 response without appending another encounter. Reusing that ID with different

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DOOH 管理者モード</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="admin-body">
+    <main class="admin-shell">
+        <header class="admin-header">
+            <div>
+                <p class="admin-eyebrow">IPUT x DOOH project</p>
+                <h1>管理者モード</h1>
+            </div>
+            <div class="admin-header-actions">
+                <button class="secondary-button admin-refresh-button" id="adminRefresh" type="button">更新</button>
+                <button class="text-button" id="adminLogout" type="button">ログアウト</button>
+            </div>
+        </header>
+
+        <p class="admin-status" id="adminStatus" role="status">読み込み中...</p>
+
+        <section class="admin-metrics" aria-label="サイトの利用状況">
+            <div class="admin-metric">
+                <span>閲覧数</span>
+                <strong id="totalViews">--</strong>
+            </div>
+            <div class="admin-metric">
+                <span>プロフィール数</span>
+                <strong id="totalUsers">--</strong>
+            </div>
+            <div class="admin-metric">
+                <span>ログイン中</span>
+                <strong id="activeUsers">--</strong>
+            </div>
+        </section>
+
+        <section class="admin-section" aria-labelledby="pageViewsTitle">
+            <div class="admin-section-heading">
+                <h2 id="pageViewsTitle">ページ別閲覧数</h2>
+            </div>
+            <div class="admin-view-list" id="pageViews"></div>
+        </section>
+
+        <section class="admin-section" aria-labelledby="profilesTitle">
+            <div class="admin-section-heading">
+                <h2 id="profilesTitle">利用者プロフィール</h2>
+                <span id="profileSummary"></span>
+            </div>
+            <div class="admin-user-list" id="adminUsers"></div>
+        </section>
+    </main>
+
+    <script src="app-config.js"></script>
+    <script src="api-client.js"></script>
+    <script src="site-control.js"></script>
+    <script src="admin.js"></script>
+    <script>
+        const statusText = document.getElementById("adminStatus");
+        const userList = document.getElementById("adminUsers");
+        const viewList = document.getElementById("pageViews");
+
+        function textElement(tagName, className, value) {
+            const element = document.createElement(tagName);
+            element.className = className;
+            element.textContent = value;
+            return element;
+        }
+
+        function formatDate(value) {
+            if (!value) {
+                return "記録なし";
+            }
+
+            const date = new Date(value);
+            return Number.isNaN(date.getTime()) ? value : date.toLocaleString("ja-JP");
+        }
+
+        function renderMetrics(usersData, metricsData) {
+            document.getElementById("totalViews").textContent = metricsData.total_views || 0;
+            document.getElementById("totalUsers").textContent = usersData.total || 0;
+            document.getElementById("activeUsers").textContent = usersData.active || 0;
+            document.getElementById("profileSummary").textContent = `${usersData.total || 0}件`;
+
+            viewList.replaceChildren();
+            const entries = Object.entries(metricsData.by_path || {}).sort((a, b) => b[1] - a[1]);
+
+            if (!entries.length) {
+                viewList.appendChild(textElement("p", "admin-empty", "閲覧記録はまだありません。"));
+                return;
+            }
+
+            entries.forEach(([path, count]) => {
+                const row = document.createElement("div");
+                row.className = "admin-view-row";
+                row.append(
+                    textElement("span", "", path),
+                    textElement("strong", "", String(count))
+                );
+                viewList.appendChild(row);
+            });
+        }
+
+        function renderUsers(users) {
+            userList.replaceChildren();
+
+            if (!users.length) {
+                userList.appendChild(textElement("p", "admin-empty", "プロフィールはまだありません。"));
+                return;
+            }
+
+            users.forEach(user => {
+                const item = document.createElement("article");
+                item.className = "admin-user-row";
+
+                const identity = document.createElement("div");
+                identity.className = "admin-user-identity";
+                const nameLine = document.createElement("div");
+                nameLine.className = "admin-user-name-line";
+                nameLine.append(
+                    textElement("h3", "", user.display_name || "Unknown"),
+                    textElement("span", user.active ? "admin-online" : "admin-offline", user.active ? "ログイン中" : "オフライン")
+                );
+                identity.append(
+                    nameLine,
+                    textElement("p", "admin-user-id", user.user_id),
+                    textElement("p", "admin-user-detail", `年齢: ${user.age || "未設定"} / コーデ: ${user.costume_id || "未設定"}`),
+                    textElement("p", "admin-user-detail", `好きなこと: ${(user.interests || []).join("、") || "未設定"}`),
+                    textElement("p", "admin-user-detail", `一言ID: ${(user.message_ids || []).join("、") || "未設定"}`),
+                    textElement("p", "admin-user-time", `最終接続: ${formatDate(user.last_active_at || user.updated_at)}`)
+                );
+
+                const actions = document.createElement("div");
+                actions.className = "admin-user-actions";
+                const logoutButton = textElement("button", "secondary-button admin-action-button", "強制ログアウト");
+                logoutButton.type = "button";
+                logoutButton.addEventListener("click", () => forceLogout(user));
+                const deleteButton = textElement("button", "admin-delete-button", "アカウント削除");
+                deleteButton.type = "button";
+                deleteButton.addEventListener("click", () => deleteUser(user));
+                actions.append(logoutButton, deleteButton);
+
+                item.append(identity, actions);
+                userList.appendChild(item);
+            });
+        }
+
+        function handleAdminError(err) {
+            if (err && err.status === 401) {
+                window.DOOH_ADMIN.logout();
+                window.location.replace("admin-login.html" + window.location.search);
+                return;
+            }
+
+            statusText.textContent = err.message || "管理データを取得できませんでした。";
+            statusText.classList.add("error");
+        }
+
+        async function loadDashboard() {
+            statusText.textContent = "読み込み中...";
+            statusText.classList.remove("error");
+
+            try {
+                const [usersData, metricsData] = await Promise.all([
+                    window.DOOH_ADMIN.getUsers(),
+                    window.DOOH_ADMIN.getMetrics()
+                ]);
+                renderMetrics(usersData, metricsData);
+                renderUsers(usersData.users || []);
+                statusText.textContent = `最終更新 ${new Date().toLocaleTimeString("ja-JP")}`;
+            } catch (err) {
+                handleAdminError(err);
+            }
+        }
+
+        async function forceLogout(user) {
+            if (!confirm(`${user.display_name} を強制ログアウトしますか？`)) {
+                return;
+            }
+
+            try {
+                await window.DOOH_ADMIN.forceLogout(user.user_id);
+                await loadDashboard();
+            } catch (err) {
+                handleAdminError(err);
+            }
+        }
+
+        async function deleteUser(user) {
+            if (!confirm(`${user.display_name} のアカウントと関連データを削除します。この操作は元に戻せません。`)) {
+                return;
+            }
+
+            try {
+                await window.DOOH_ADMIN.deleteUser(user.user_id);
+                await loadDashboard();
+            } catch (err) {
+                handleAdminError(err);
+            }
+        }
+
+        document.getElementById("adminRefresh").addEventListener("click", loadDashboard);
+        document.getElementById("adminLogout").addEventListener("click", () => {
+            window.DOOH_ADMIN.logout();
+            window.location.replace("index.html" + window.location.search);
+        });
+
+        if (!window.DOOH_ADMIN.hasSession()) {
+            window.location.replace("admin-login.html" + window.location.search);
+        } else {
+            loadDashboard();
+        }
+    </script>
+</body>
+</html>

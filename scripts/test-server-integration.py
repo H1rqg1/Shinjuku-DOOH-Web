@@ -106,6 +106,9 @@ def assert_status(response: Response, expected: int = 200) -> Any:
 
 
 def run() -> None:
+    os.environ["DOOH_ADMIN_PASSWORD"] = "integration-test-admin-password"
+    os.environ["DOOH_ADMIN_TOKEN_SECRET"] = "integration-test-token-secret"
+
     with running_server() as port:
         root = assert_status(request_json(port, "GET", "/"))
         assert root["endpoints"]["save"] == "POST /encounter"
@@ -130,6 +133,63 @@ def run() -> None:
             "https://shinjukuweb.example",
         }
         assert "POST" in cors_headers["access-control-allow-methods"]
+
+        configured_password = os.environ.pop("DOOH_ADMIN_PASSWORD")
+        unconfigured_identity = assert_status(request_json(port, "POST", "/admin/identify", {
+            "username": app_module.ADMIN_USERNAME,
+        }))
+        assert unconfigured_identity == {"admin_required": True, "admin_configured": False}
+        unconfigured_login_status, _unconfigured_headers, _unconfigured_login = request_json(
+            port,
+            "POST",
+            "/admin/login",
+            {
+                "username": app_module.ADMIN_USERNAME,
+                "password": "integration-test-admin-password",
+            },
+        )
+        assert unconfigured_login_status == 503
+        os.environ["DOOH_ADMIN_PASSWORD"] = configured_password
+
+        normal_identity = assert_status(request_json(port, "POST", "/admin/identify", {
+            "username": "ordinary-user",
+        }))
+        assert normal_identity == {"admin_required": False, "admin_configured": True}
+
+        admin_identity = assert_status(request_json(port, "POST", "/admin/identify", {
+            "username": app_module.ADMIN_USERNAME,
+        }))
+        assert admin_identity == {"admin_required": True, "admin_configured": True}
+
+        unauthorized_status, _unauthorized_headers, _unauthorized = request_json(
+            port,
+            "GET",
+            "/admin/users",
+        )
+        assert unauthorized_status == 401
+
+        wrong_login_status, _wrong_login_headers, wrong_login = request_json(
+            port,
+            "POST",
+            "/admin/login",
+            {
+                "username": app_module.ADMIN_USERNAME,
+                "password": "wrong-password",
+            },
+        )
+        assert wrong_login_status == 401
+        assert wrong_login["detail"] == "Username or password is incorrect"
+
+        admin_login = assert_status(request_json(port, "POST", "/admin/login", {
+            "username": app_module.ADMIN_USERNAME,
+            "password": "integration-test-admin-password",
+        }))
+        assert admin_login["token_type"] == "bearer"
+        assert admin_login["token"]
+        admin_headers = {"Authorization": f"Bearer {admin_login['token']}"}
+
+        assert_status(request_json(port, "POST", "/analytics/view", {"path": "/"}))
+        assert_status(request_json(port, "POST", "/analytics/view", {"path": "/home.html?from=test"}))
 
         timestamp = app_module.now_iso()
         first_ble = assert_status(request_json(port, "POST", "/encounter", {
@@ -164,17 +224,77 @@ def run() -> None:
             "sync_id": "sync-web-user-1",
             "user_id": "web-user-1",
             "display_name": "Web User",
+            "age": "20",
             "avatar_code": "00020000",
             "costume_id": "costume_fashion02",
             "selected_message_ids": ["talk_hello", "status_break"],
             "interest_ids": ["music"],
             "interests": ["Music"],
         }
+        reserved_payload = dict(sync_payload)
+        reserved_payload["sync_id"] = "reserved-admin-name"
+        reserved_payload["user_id"] = "reserved-user"
+        reserved_payload["display_name"] = app_module.ADMIN_USERNAME
+        reserved_status, _reserved_headers, reserved_response = request_json(
+            port,
+            "POST",
+            "/sync",
+            reserved_payload,
+        )
+        assert reserved_status == 403
+        assert reserved_response["detail"] == "Administrator username is reserved"
+
         sync = assert_status(request_json(port, "POST", "/sync", sync_payload))
         assert sync["encounter_count"] == 3
         assert sync["encounter"]["costume_id"] == "costume_fashion02"
         assert sync["encounter"]["message_ids"] == ["talk_hello", "status_break"]
         assert "interests" not in sync["encounter"]
+
+        account_session = assert_status(request_json(port, "POST", "/account/session", {
+            "user_id": "web-user-1",
+            "session_id": "browser-session-1",
+            "revision": 0,
+        }))
+        assert account_session == {"status": "active", "revision": 0}
+
+        admin_users = assert_status(request_json(
+            port,
+            "GET",
+            "/admin/users",
+            headers=admin_headers,
+        ))
+        web_admin_profile = next(
+            user for user in admin_users["users"] if user["user_id"] == "web-user-1"
+        )
+        assert web_admin_profile["display_name"] == "Web User"
+        assert web_admin_profile["age"] == "20"
+        assert web_admin_profile["interests"] == ["Music"]
+        assert web_admin_profile["active"] is True
+        assert admin_users["active"] == 1
+
+        metrics = assert_status(request_json(
+            port,
+            "GET",
+            "/admin/metrics",
+            headers=admin_headers,
+        ))
+        assert metrics["total_views"] == 2
+        assert metrics["by_path"] == {"/": 1, "/home.html": 1}
+
+        forced_logout = assert_status(request_json(
+            port,
+            "POST",
+            "/admin/users/web-user-1/logout",
+            headers=admin_headers,
+        ))
+        assert forced_logout["revision"] == 1
+
+        forced_session = assert_status(request_json(port, "POST", "/account/session", {
+            "user_id": "web-user-1",
+            "session_id": "browser-session-1",
+            "revision": 0,
+        }))
+        assert forced_session == {"status": "force_logout", "revision": 1}
 
         duplicate_sync = assert_status(request_json(port, "POST", "/sync", sync_payload))
         assert duplicate_sync["encounter_count"] == 3
@@ -220,6 +340,35 @@ def run() -> None:
             request_json(port, "GET", "/encounters")
         )["encounters"]
         assert len(republished_encounters) == 1
+
+        deleted = assert_status(request_json(
+            port,
+            "DELETE",
+            "/admin/users/web-user-1",
+            headers=admin_headers,
+        ))
+        assert deleted == {"message": "deleted", "user_id": "web-user-1"}
+
+        deleted_session = assert_status(request_json(port, "POST", "/account/session", {
+            "user_id": "web-user-1",
+            "session_id": "browser-session-1",
+            "revision": 1,
+        }))
+        assert deleted_session == {"status": "deleted"}
+
+        deleted_sync_status, _deleted_sync_headers, deleted_sync = request_json(
+            port,
+            "POST",
+            "/sync",
+            sync_payload,
+        )
+        assert deleted_sync_status == 410
+        assert deleted_sync["detail"] == "Account was deleted"
+
+        remaining_encounters = assert_status(
+            request_json(port, "GET", "/encounters")
+        )["encounters"]
+        assert all(encounter.get("my_id") != "web-user-1" for encounter in remaining_encounters)
 
         temp_path = app_module.DATA_PATH.with_name(
             f".{app_module.DATA_PATH.name}.{os.getpid()}.tmp"
