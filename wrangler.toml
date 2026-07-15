@@ -1,4 +1,4 @@
-name = "shinjuku0dooh0web"
+name = "shinjukuweb"
 compatibility_date = "2026-07-08"
 main = "src/worker.js"
 
