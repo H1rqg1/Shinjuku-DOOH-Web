@@ -455,3 +455,12 @@
   the previous ETag and did not yet contain the fixed administrator ID after
   repeated cache-busted checks. The latest routing change was therefore not
   considered publicly deployed at that point.
+
+## 2026-07-15 Administrator ID Input Length
+
+- Found that the profile nickname field still had `maxlength="20"`, while the
+  fixed administrator ID contains 25 characters.
+- Increased the nickname input limit to 40 characters so the complete
+  administrator ID can be entered without changing its fixed value.
+- Added a regression test that fails when the nickname limit is shorter than the
+  configured administrator ID.

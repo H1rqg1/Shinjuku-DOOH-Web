@@ -35,6 +35,16 @@ function assertInlineScriptsParse(filename) {
     });
 }
 
+function assertAdminUsernameFitsProfile() {
+    const source = fs.readFileSync(path.join(rootDir, "profile.html"), "utf8");
+    const nicknameInput = source.match(/id="nickname"[\s\S]*?maxlength="(\d+)"/);
+    assert.ok(nicknameInput, "profile nickname input should define maxlength");
+    assert.ok(
+        Number(nicknameInput[1]) >= "DOOH-IPUT-IS-IDIOT-TEAM-K".length,
+        "profile nickname input must accept the fixed administrator ID"
+    );
+}
+
 async function testAdminClient() {
     const calls = [];
     const sessionStorage = createStorage({ dooh_admin_username: "administrator" });
@@ -152,6 +162,7 @@ async function testSiteControl() {
 }
 
 async function run() {
+    assertAdminUsernameFitsProfile();
     assertInlineScriptsParse("admin-login.html");
     assertInlineScriptsParse("admin.html");
     await testAdminClient();
