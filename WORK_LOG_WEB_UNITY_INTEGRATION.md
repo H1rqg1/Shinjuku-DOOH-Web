@@ -434,3 +434,11 @@
 - The public Cloudflare Web still has an empty production `apiBaseUrl`; therefore
   administrator operations remain unavailable there until the production API is
   deployed and configured.
+- Committed and pushed the administrator implementation as `28f1e21` on `main`.
+- Cloudflare initially returned HTTP 404 for the new `admin.js`, then returned
+  HTTP 200 after approximately 60 seconds, confirming the GitHub-triggered static
+  deployment completed.
+- Confirmed the deployed root, existing user pages, administrator pages,
+  JavaScript/CSS, and all three outfit images resolve to HTTP 200 after redirects.
+- Re-scanned deployed administrator assets using the ignored local password and
+  confirmed the password is not present publicly.
